@@ -67,6 +67,8 @@ public class WebSecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/Login",
+                                "/categorias", "/marcas",
+                                "/webhook/whatsapp",
                                 "/usuarios"
                         ).permitAll()
 
