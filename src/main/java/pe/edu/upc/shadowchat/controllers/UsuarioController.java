@@ -42,7 +42,7 @@ public class UsuarioController {
     }
 
     // GET /usuarios/miperfil (HU05)
-    @GetMapping("/miperfil")
+    @GetMapping({"/miperfil", "/me"})
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
     public ResponseEntity<UsuarioPerfilDTO> miPerfil() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -62,7 +62,7 @@ public class UsuarioController {
     }
 
     // PUT /usuarios/miperfil (HU05)
-    @PutMapping("/miperfil")
+    @PutMapping({"/miperfil", "/me"})
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
     public ResponseEntity<Void> actualizarPerfil(@RequestBody UsuarioPerfilDTO dto) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
