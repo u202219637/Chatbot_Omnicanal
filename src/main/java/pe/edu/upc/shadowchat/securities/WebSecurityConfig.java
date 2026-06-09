@@ -62,16 +62,16 @@ public class WebSecurityConfig {
                         .requestMatchers(antMatcher("/login")).permitAll()
                         .requestMatchers(antMatcher("/usuarios")).permitAll()
                         .requestMatchers(antMatcher("/usuarios/buscar-por-username/**")).permitAll()
+                        .requestMatchers(antMatcher("/categorias")).permitAll()
+                        .requestMatchers(antMatcher("/marcas")).permitAll()
+                        .requestMatchers(antMatcher("/productos")).permitAll()
+                        .requestMatchers(antMatcher("/productos/**")).permitAll()
+                        .requestMatchers(antMatcher("/webhook/**")).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html",
-                                "/Login",
-                                "/categorias", "/marcas",
-                                "/webhook/whatsapp",
-                                "/usuarios"
+                                "/swagger-ui.html"
                         ).permitAll()
-
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults())
