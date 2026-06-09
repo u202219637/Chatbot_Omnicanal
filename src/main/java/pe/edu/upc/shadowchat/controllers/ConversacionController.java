@@ -11,7 +11,7 @@ import pe.edu.upc.shadowchat.dtos.feedback.FeedbackDTO;
 import pe.edu.upc.shadowchat.dtos.fuenterespuesta.FuenteRespuestaDTO;
 import pe.edu.upc.shadowchat.entities.*;
 import pe.edu.upc.shadowchat.serviceInterfaces.*;
-
+import pe.edu.upc.shadowchat.serviceInterfaces.IRagService;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +26,7 @@ public class ConversacionController {
     @Autowired private IFeedbackService feedbackService;
     @Autowired private IUsuarioService usuarioService;
     @Autowired private ICanalService canalService;
+    @Autowired private IRagService ragService;
 
     // POST /chat/mensaje (HU13, HU14, HU17)
     @PostMapping("/mensaje")
@@ -37,10 +38,9 @@ public class ConversacionController {
         Usuario usuario = usuarioService.findByUsername(username);
         String origen = request.getOrigen() != null ? request.getOrigen() : "WEB";
 
-        // Recupera conversación activa o crea una nueva
         Conversacion conv = conversacionService.findActiva(usuario.getId(), origen)
                 .orElseGet(() -> {
-                    Canal canal = canalService.findByNombre(origen)
+                    canalService.findByNombre(origen)
                             .orElseThrow(() -> new RuntimeException("Canal no existe: " + origen));
                     Conversacion nueva = new Conversacion();
                     nueva.setUsuario(usuario);
@@ -50,30 +50,50 @@ public class ConversacionController {
                     return nueva;
                 });
 
-        // Guarda mensaje del cliente
+        Canal canal = canalService.findByNombre(origen)
+                .orElseThrow(() -> new RuntimeException("Canal no existe"));
+
+        // Guardar mensaje cliente
+        long t0 = System.currentTimeMillis();
         Mensaje msgCliente = new Mensaje();
         msgCliente.setConversacion(conv);
         msgCliente.setTipoEmisor("CLIENTE");
         msgCliente.setContenido(request.getContenido());
-        msgCliente.setCanal(canalService.findByNombre(origen)
-                .orElseThrow(() -> new RuntimeException("Canal no existe")));
+        msgCliente.setCanal(canal);
         mensajeService.insert(msgCliente);
 
-        // TODO Sprint 2: aquí va la llamada a RagService + OpenAiService
-        // Por ahora respuesta placeholder para que compile y el flujo sea testeable
+        // Crear mensaje bot con placeholder para obtener ID
         Mensaje msgBot = new Mensaje();
         msgBot.setConversacion(conv);
         msgBot.setTipoEmisor("BOT");
-        msgBot.setContenido("Respuesta del bot (RAG pendiente de integración)");
-        msgBot.setCanal(msgCliente.getCanal());
+        msgBot.setContenido("...");
+        msgBot.setCanal(canal);
         mensajeService.insert(msgBot);
 
-        // Construye respuesta
+        // Llamar RAG + OpenAI
+        String respuesta;
+        try {
+            respuesta = ragService.responder(conv, request.getContenido(), msgBot.getId());
+        } catch (Exception e) {
+            e.printStackTrace();
+            respuesta = "Lo siento, hubo un error procesando tu consulta. Intenta de nuevo.";
+        }
+
+        // Actualizar mensaje bot con respuesta real
+        long tiempoMs = System.currentTimeMillis() - t0;
+        msgBot.setContenido(respuesta);
+        mensajeService.insert(msgBot);
+
+        // Actualizar métricas conversación
+        conv.setCantidadMensajes((conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2);
+        conv.setTiempoPromedioRespuestaMs((int) tiempoMs);
+        conversacionService.update(conv);
+
         MensajeResponseDTO response = new MensajeResponseDTO();
         response.setId(msgBot.getId());
         response.setConversacionId(conv.getId());
         response.setTipoEmisor("BOT");
-        response.setContenido(msgBot.getContenido());
+        response.setContenido(respuesta);
         response.setFechaEnvio(msgBot.getFechaEnvio());
         response.setEscalada(false);
         return ResponseEntity.ok(response);

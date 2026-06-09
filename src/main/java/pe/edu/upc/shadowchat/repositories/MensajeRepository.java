@@ -44,4 +44,5 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
             LIMIT 10
             """, nativeQuery = true)
     List<Object[]> documentosMasUsados();
+    List<Mensaje> findTop6ByConversacionIdOrderByFechaEnvioAsc(Long conversacionId);
 }
