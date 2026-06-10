@@ -68,4 +68,15 @@ public interface FragmentoConocimientoRepository
     @Transactional
     @Query("DELETE FROM FragmentoConocimiento f WHERE f.documentoConocimiento.id = :docId")
     void deleteByDocumentoConocimientoId(@Param("docId") Long docId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM FragmentoConocimiento f WHERE f.contenido LIKE %:texto%")
+    void deleteByContenidoContaining(@Param("texto") String texto);
+    // Busca fragmento por producto exacto para actualizar
+
+    @Query("SELECT f FROM FragmentoConocimiento f WHERE f.contenido LIKE :patron AND f.documentoConocimiento.id = :docId")
+    List<FragmentoConocimiento> findByProductoEnDocumento(
+            @Param("patron") String patron,
+            @Param("docId") Long docId);
 }

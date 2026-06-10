@@ -10,9 +10,11 @@ import org.springframework.web.multipart.MultipartFile;
 import pe.edu.upc.shadowchat.dtos.documento.*;
 import pe.edu.upc.shadowchat.entities.DocumentoConocimiento;
 import pe.edu.upc.shadowchat.entities.FragmentoConocimiento;
+import pe.edu.upc.shadowchat.entities.Producto;
 import pe.edu.upc.shadowchat.entities.Usuario;
 import pe.edu.upc.shadowchat.serviceInterfaces.IDocumentoConocimientoService;
 import pe.edu.upc.shadowchat.serviceInterfaces.IFragmentoConocimientoService;
+import pe.edu.upc.shadowchat.serviceInterfaces.IProductoService;
 import pe.edu.upc.shadowchat.serviceInterfaces.IUsuarioService;
 
 import java.util.List;
@@ -27,8 +29,9 @@ public class DocumentoController {
     @Autowired private IDocumentoConocimientoService documentoService;
     @Autowired private IFragmentoConocimientoService fragmentoService;
     @Autowired private IUsuarioService usuarioService;
+    @Autowired private IProductoService productoService;
 
-    // GET /admin/documentos (HU15)
+    // GET /admin/documentos
     @GetMapping
     public List<DocumentoListDTO> listar() {
         return documentoService.list().stream().map(doc -> {
@@ -46,7 +49,7 @@ public class DocumentoController {
         }).collect(Collectors.toList());
     }
 
-    // GET /admin/documentos/estadisticas (HU15 — panel RAG)
+    // GET /admin/documentos/estadisticas
     @GetMapping("/estadisticas")
     public ResponseEntity<RagEstadisticasDTO> estadisticas() {
         long totalDocs = documentoService.countDocumentos();
@@ -59,7 +62,7 @@ public class DocumentoController {
         return ResponseEntity.ok(d);
     }
 
-    // POST /admin/documentos/upload (HU15)
+    // POST /admin/documentos/upload
     @PostMapping("/upload")
     public ResponseEntity<Void> upload(
             @RequestPart("archivo") MultipartFile archivo,
@@ -71,7 +74,7 @@ public class DocumentoController {
         return ResponseEntity.ok().build();
     }
 
-    // GET /admin/documentos/{id}/fragmentos (HU30)
+    // GET /admin/documentos/{id}/fragmentos
     @GetMapping("/{id}/fragmentos")
     public List<FragmentoPreviewDTO> fragmentos(@PathVariable Long id) {
         return fragmentoService.listByDocumento(id).stream().map(f -> {
@@ -86,17 +89,35 @@ public class DocumentoController {
         }).collect(Collectors.toList());
     }
 
-    // POST /admin/documentos/{id}/reprocesar (HU33)
+    // POST /admin/documentos/{id}/reprocesar
     @PostMapping("/{id}/reprocesar")
     public ResponseEntity<Void> reprocesar(@PathVariable Long id) {
         documentoService.reprocesar(id);
         return ResponseEntity.ok().build();
     }
 
-    // DELETE /admin/documentos/{id} (HU29)
+    // DELETE /admin/documentos/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         documentoService.eliminar(id);
         return ResponseEntity.ok().build();
+    }
+
+    // POST /admin/documentos/reindexar
+    // Genera embeddings para todos los productos → RAG semántico real
+    @PostMapping("/reindexar")
+    public ResponseEntity<String> reindexar() {
+        List<Producto> productos = productoService.list();
+        int ok = 0, error = 0;
+        for (Producto p : productos) {
+            try {
+                productoService.update(p);
+                ok++;
+            } catch (Exception e) {
+                System.out.println("Error embedding " + p.getNombre() + ": " + e.getMessage());
+                error++;
+            }
+        }
+        return ResponseEntity.ok("Reindexados: " + ok + " | Errores: " + error);
     }
 }

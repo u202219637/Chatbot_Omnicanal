@@ -1,5 +1,5 @@
 package pe.edu.upc.shadowchat.entities;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.List;
@@ -21,6 +21,7 @@ public class Categoria implements Serializable {
     @Column(name = "estado")
     private Boolean estado = true;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL,
             fetch = FetchType.LAZY)
     private List<Producto> productos;
