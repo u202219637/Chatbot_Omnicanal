@@ -156,17 +156,17 @@ public class DocumentoConocimientoServiceImplement implements IDocumentoConocimi
 
     private List<String> chunkTexto(String texto, int tamano, int overlap) {
         List<String> chunks = new ArrayList<>();
+        if (texto == null || texto.isBlank()) return chunks;
+
         int inicio = 0;
-        while (inicio < texto.length()) {
-            int fin = Math.min(inicio + tamano, texto.length());
-            if (fin < texto.length()) {
-                int ultimoEspacio = texto.lastIndexOf(' ', fin);
-                if (ultimoEspacio > inicio) fin = ultimoEspacio;
-            }
-            String chunk = texto.substring(inicio, fin).trim();
-            if (!chunk.isBlank()) chunks.add(chunk);
-            inicio = fin - overlap;
-            if (inicio <= 0 || inicio >= texto.length()) break;
+        int largo = texto.length();
+
+        while (inicio < largo) {
+            int fin = Math.min(inicio + tamano, largo);
+            chunks.add(texto.substring(inicio, fin));
+            inicio += tamano - overlap;
+            // Protección contra bucle infinito
+            if (tamano <= overlap) break;
         }
         return chunks;
     }

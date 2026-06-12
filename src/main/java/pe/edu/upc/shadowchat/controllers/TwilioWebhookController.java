@@ -26,19 +26,15 @@ public class TwilioWebhookController {
             @RequestParam("Body") String body) {
 
         try {
-            // "whatsapp:+51999999999" → "+51999999999"
             String numero = from.replace("whatsapp:", "").trim();
-            // Twilio siempre manda +51xxxxxxxxx — esta línea es solo seguro extra
             if (!numero.startsWith("+")) numero = "+" + numero;
 
-            // Resuelve el Usuario por número de WhatsApp vinculado
             UsuarioCanal uc = usuarioCanalService
                     .findByIdentificador("WHATSAPP", numero);
             Usuario usuario = uc.getUsuario();
 
-            // Recupera conversación ABIERTA en canal WHATSAPP o crea nueva
             Conversacion conv = conversacionService
-                    .findActiva(usuario.getId(), "WHATSAPP")
+                    .findActivaByUsuario(usuario.getId())
                     .orElseGet(() -> {
                         Conversacion nueva = new Conversacion();
                         nueva.setUsuario(usuario);
@@ -48,10 +44,10 @@ public class TwilioWebhookController {
                         return nueva;
                     });
 
-            // Guarda mensaje del cliente
             Canal canal = canalService.findByNombre("WHATSAPP")
                     .orElseThrow(() -> new RuntimeException("Canal WHATSAPP no existe"));
 
+            // Guarda mensaje del cliente
             Mensaje msgCliente = new Mensaje();
             msgCliente.setConversacion(conv);
             msgCliente.setUsuarioCanal(uc);
@@ -60,43 +56,38 @@ public class TwilioWebhookController {
             msgCliente.setContenido(body);
             mensajeService.insert(msgCliente);
 
-            // Crea mensaje bot placeholder para obtener ID
-            Mensaje msgBot = new Mensaje();
-            msgBot.setConversacion(conv);
-            msgBot.setCanal(canal);
-            msgBot.setTipoEmisor("BOT");
-            msgBot.setContenido("...");
-            mensajeService.insert(msgBot);
-
-            // Llama al RAG (mismo pipeline que el chat web)
+            // Llama al RAG directamente sin placeholder
             String respuestaBot;
             try {
-                respuestaBot = ragService.responder(conv, body, msgBot.getId());
+                respuestaBot = ragService.responder(conv, body, null);
             } catch (Exception e) {
                 e.printStackTrace();
                 respuestaBot = "Lo siento, hubo un error procesando tu consulta. Por favor intenta de nuevo.";
             }
 
-            // Actualiza el mensaje bot con la respuesta real
+            // Guarda respuesta del bot en un solo insert
+            Mensaje msgBot = new Mensaje();
+            msgBot.setConversacion(conv);
+            msgBot.setCanal(canal);
+            msgBot.setTipoEmisor("BOT");
             msgBot.setContenido(respuestaBot);
             mensajeService.insert(msgBot);
 
-            // Actualiza métricas de la conversación
+            // Actualiza métricas
             conv.setCantidadMensajes(
                     (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2
             );
             conversacionService.update(conv);
 
-            // Envía respuesta al número de WhatsApp vía Twilio
+            // Envía respuesta por WhatsApp
             twilioService.enviarWhatsApp(numero, respuestaBot);
 
-            // TwiML vacío — Twilio ya recibió el ack, la respuesta se envía por API
             return ResponseEntity.ok(
                     "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>"
             );
 
         } catch (Exception e) {
-            // Número no vinculado → instrucciones de registro
+            e.printStackTrace();
             String twiml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
                     "<Response><Message>Hola! Para usar ShadowChat por WhatsApp, " +
                     "primero vincula tu número en nuestro portal web: " +
