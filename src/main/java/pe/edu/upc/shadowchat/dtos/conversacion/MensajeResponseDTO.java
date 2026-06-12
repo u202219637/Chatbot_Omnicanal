@@ -37,4 +37,9 @@ public class MensajeResponseDTO {
     public void setFuentes(List<FuenteRespuestaDTO> v) { this.fuentes = v; }
     public Boolean getEscalada()                       { return escalada; }
     public void setEscalada(Boolean v)                 { this.escalada = v; }
+
+    private String canalNombre; // WEB o WHATSAPP — para vista omnicanal
+
+    public String getCanalNombre()         { return canalNombre; }
+    public void setCanalNombre(String v)   { this.canalNombre = v; }
 }

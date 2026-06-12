@@ -1,5 +1,6 @@
 package pe.edu.upc.shadowchat.dtos.conversacion;
 import java.time.LocalDateTime;
+
 public class ConversacionListDTO {
     private Long id;
     private String asunto;
@@ -10,6 +11,9 @@ public class ConversacionListDTO {
     private Integer cantidadMensajes;
     private Boolean fueResuelta;
     private Integer satisfaccion;
+    private String clienteNombre;   // NUEVO — para vista admin
+    private String clienteUsername; // NUEVO — para vista admin
+
     public Long getId()                              { return id; }
     public void setId(Long v)                        { this.id = v; }
     public String getAsunto()                        { return asunto; }
@@ -28,4 +32,8 @@ public class ConversacionListDTO {
     public void setFueResuelta(Boolean v)            { this.fueResuelta = v; }
     public Integer getSatisfaccion()                 { return satisfaccion; }
     public void setSatisfaccion(Integer v)           { this.satisfaccion = v; }
+    public String getClienteNombre()                 { return clienteNombre; }
+    public void setClienteNombre(String v)           { this.clienteNombre = v; }
+    public String getClienteUsername()               { return clienteUsername; }
+    public void setClienteUsername(String v)         { this.clienteUsername = v; }
 }

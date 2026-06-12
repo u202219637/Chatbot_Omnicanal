@@ -63,14 +63,17 @@ public class DocumentoController {
     }
 
     // POST /admin/documentos/upload
+// POST /admin/documentos/upload
     @PostMapping("/upload")
     public ResponseEntity<Void> upload(
             @RequestPart("archivo") MultipartFile archivo,
-            @RequestPart("datos") DocumentoUploadDTO dto) {
+            @RequestPart(value = "titulo", required = false) String titulo) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         Usuario admin = usuarioService.findByUsername(username);
-        documentoService.cargar(archivo, admin.getId(),
-                dto.getProductoId(), dto.getTipoDocumento());
+        String nombreDoc = (titulo != null && !titulo.isBlank())
+                ? titulo
+                : archivo.getOriginalFilename();
+        documentoService.cargar(archivo, admin.getId(), null, "DOC");
         return ResponseEntity.ok().build();
     }
 

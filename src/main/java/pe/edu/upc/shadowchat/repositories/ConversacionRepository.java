@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import pe.edu.upc.shadowchat.entities.Conversacion;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -84,4 +85,23 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
             """, nativeQuery = true)
     Object[] kpisPeriodo(@Param("desde") String desde,
                          @Param("hasta") String hasta);
+
+    // Omnicanalidad (HU20)
+    Optional<Conversacion> findFirstByUsuarioIdAndEstadoOrderByFechaInicioDesc(
+            Long usuarioId, String estado);
+
+    // Filtros admin/asesor (HU22, HU25)
+    @Query("""
+    SELECT c FROM Conversacion c
+    WHERE (:estado IS NULL OR c.estado = :estado)
+      AND (:origen IS NULL OR c.origen = :origen)
+      AND (:desde IS NULL OR c.fechaInicio >= :desde)
+      AND (:hasta IS NULL OR c.fechaInicio < :hasta)
+    ORDER BY c.fechaInicio DESC
+    """)
+    List<Conversacion> findAllWithFilters(
+            @Param("estado") String estado,
+            @Param("origen") String origen,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta")  LocalDateTime hasta);
 }

@@ -1,5 +1,6 @@
 package pe.edu.upc.shadowchat.serviceImplements;
 
+import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,19 +13,12 @@ import pe.edu.upc.shadowchat.repositories.FragmentoConocimientoRepository;
 import pe.edu.upc.shadowchat.repositories.ProductoRepository;
 import pe.edu.upc.shadowchat.repositories.UsuarioRepository;
 import pe.edu.upc.shadowchat.serviceInterfaces.IDocumentoConocimientoService;
+import pe.edu.upc.shadowchat.serviceInterfaces.IOpenAiService;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Orquesta el pipeline RAG completo (HU15):
- *   upload → Blob → Tika → chunk → OpenAI Embeddings → pgvector
- *
- * RagService, OpenAiService y AzureBlobService se inyectan aquí.
- * Se declaran como Object para no bloquear la compilación mientras
- * esos servicios aún no están implementados; cuando los crees
- * reemplaza Object por el tipo correcto y descomenta las llamadas.
- */
 @Service
 public class DocumentoConocimientoServiceImplement implements IDocumentoConocimientoService {
 
@@ -32,14 +26,9 @@ public class DocumentoConocimientoServiceImplement implements IDocumentoConocimi
     @Autowired private FragmentoConocimientoRepository fragmentoRepository;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private ProductoRepository productoRepository;
+    @Autowired private IOpenAiService openAiService;
 
-    /*
-     * TODO Sprint 2: inyectar cuando estén listos
-     * @Autowired private RagService ragService;
-     * @Autowired private AzureBlobService azureBlobService;
-     */
-
-    // ── Listado ─────────────────────────────────────────────────────────────
+    // ── Listado ──────────────────────────────────────────────────────────────
 
     @Override
     public List<DocumentoConocimiento> list() {
@@ -57,7 +46,7 @@ public class DocumentoConocimientoServiceImplement implements IDocumentoConocimi
                 .orElseThrow(() -> new RuntimeException("Documento no encontrado: " + id));
     }
 
-    // ── Pipeline RAG ─────────────────────────────────────────────────────────
+    // ── Pipeline RAG completo ────────────────────────────────────────────────
 
     @Override
     public DocumentoConocimiento cargar(MultipartFile archivo, Long usuarioId,
@@ -69,28 +58,60 @@ public class DocumentoConocimientoServiceImplement implements IDocumentoConocimi
                 ? productoRepository.findById(productoId).orElse(null)
                 : null;
 
-        // 1. Registro inicial con estado PENDIENTE
+        // 1. Registro inicial
         DocumentoConocimiento doc = new DocumentoConocimiento();
         doc.setTitulo(archivo.getOriginalFilename());
-        doc.setTipoDocumento(tipoDocumento);
+        doc.setTipoDocumento(tipoDocumento != null ? tipoDocumento : "DOC");
         doc.setEstado("PENDIENTE");
         doc.setUsuarioCarga(usuario);
         doc.setProducto(producto);
         documentoRepository.save(doc);
 
         try {
-            // 2. TODO: subir a Azure Blob Storage
-            // String urlBlob = azureBlobService.upload(archivo);
-            // doc.setUrlBlob(urlBlob);
+            // 2. Extraer texto con Tika (DOCX, PDF, TXT)
+            Tika tika = new Tika();
+            String textoCompleto = tika.parseToString(archivo.getInputStream());
 
-            // 3. TODO: pipeline Tika + chunking + embeddings + pgvector
-            // ragService.procesar(doc, archivo);
+            if (textoCompleto == null || textoCompleto.isBlank()) {
+                System.err.println("[RAG] Tika no extrajo texto de: " + archivo.getOriginalFilename());
+                doc.setEstado("ERROR");
+                return documentoRepository.save(doc);
+            }
+
+            System.out.println("[RAG] Texto extraído: " + textoCompleto.length() + " chars de " + archivo.getOriginalFilename());
+
+            // 3. Chunking — fragmentos de ~500 chars con overlap de 50
+            List<String> chunks = chunkTexto(textoCompleto, 500, 50);
+            System.out.println("[RAG] Chunks generados: " + chunks.size());
+
+            // 4. Generar embedding para cada chunk → guardar en pgvector
+            int orden = 1;
+            int errores = 0;
+            for (String chunk : chunks) {
+                try {
+                    float[] embedding = openAiService.embedding(chunk);
+                    FragmentoConocimiento frag = new FragmentoConocimiento();
+                    frag.setDocumentoConocimiento(doc);
+                    frag.setContenido(chunk);
+                    frag.setOrdenFragmento(orden++);
+                    frag.setEmbedding(embedding);
+                    frag.setCantidadTokens(chunk.split("\\s+").length);
+                    frag.setEstado(true);
+                    fragmentoRepository.save(frag);
+                } catch (Exception e) {
+                    System.err.println("[RAG] Error embedding chunk " + orden + ": " + e.getMessage());
+                    errores++;
+                }
+            }
+
+            System.out.println("[RAG] Fragmentos guardados: " + (orden - 1) + " | Errores: " + errores);
 
             doc.setEstado("PROCESADO");
             doc.setFechaProcesamiento(LocalDateTime.now());
+
         } catch (Exception ex) {
+            ex.printStackTrace();
             doc.setEstado("ERROR");
-            // Puedes guardar el mensaje en un campo 'errorDetalle' si lo añades a la entidad
         }
 
         return documentoRepository.save(doc);
@@ -98,22 +119,21 @@ public class DocumentoConocimientoServiceImplement implements IDocumentoConocimi
 
     @Override
     public void reprocesar(Long id) {
+        // Borra fragmentos existentes y vuelve a PENDIENTE
+        // El admin debe re-subir el archivo para regenerar embeddings
+        fragmentoRepository.deleteByDocumentoConocimientoId(id);
         DocumentoConocimiento doc = searchId(id);
         doc.setEstado("PENDIENTE");
         documentoRepository.save(doc);
-        // TODO: ragService.procesar(doc, archivo) — necesitas guardar el blob y releerlo
     }
 
     @Override
     public void eliminar(Long id) {
-        // 1. Borra fragmentos (ON CASCADE no siempre funciona con pgvector)
         fragmentoRepository.deleteByDocumentoConocimientoId(id);
-        // 2. Borra el documento
         documentoRepository.deleteById(id);
-        // TODO: azureBlobService.delete(doc.getUrlBlob())
     }
 
-    // ── Estadísticas panel RAG ───────────────────────────────────────────────
+    // ── Estadísticas ─────────────────────────────────────────────────────────
 
     @Override
     public long countDocumentos() {
@@ -127,9 +147,27 @@ public class DocumentoConocimientoServiceImplement implements IDocumentoConocimi
 
     @Override
     public long sumTokens() {
-        // Suma tokens de todos los fragmentos
         return fragmentoRepository.findAll().stream()
                 .mapToLong(f -> f.getCantidadTokens() != null ? f.getCantidadTokens() : 0L)
                 .sum();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private List<String> chunkTexto(String texto, int tamano, int overlap) {
+        List<String> chunks = new ArrayList<>();
+        int inicio = 0;
+        while (inicio < texto.length()) {
+            int fin = Math.min(inicio + tamano, texto.length());
+            if (fin < texto.length()) {
+                int ultimoEspacio = texto.lastIndexOf(' ', fin);
+                if (ultimoEspacio > inicio) fin = ultimoEspacio;
+            }
+            String chunk = texto.substring(inicio, fin).trim();
+            if (!chunk.isBlank()) chunks.add(chunk);
+            inicio = fin - overlap;
+            if (inicio <= 0 || inicio >= texto.length()) break;
+        }
+        return chunks;
     }
 }

@@ -66,4 +66,16 @@ public class ConversacionServiceImplement implements IConversacionService {
     @Override public List<Object[]> topIntenciones()                   { return conversacionRepository.topIntenciones(); }
     @Override public List<Object[]> tokensPorDia()                     { return conversacionRepository.tokensPorDia(); }
     @Override public List<Object[]> countByOrigen()                    { return conversacionRepository.countByOrigen(); }
+
+    @Override
+    public Optional<Conversacion> findActivaByUsuario(Long usuarioId) {
+        return conversacionRepository
+                .findFirstByUsuarioIdAndEstadoOrderByFechaInicioDesc(usuarioId, "ABIERTA");
+    }
+
+    @Override
+    public List<Conversacion> listAll(String estado, String origen,
+                                      LocalDateTime desde, LocalDateTime hasta) {
+        return conversacionRepository.findAllWithFilters(estado, origen, desde, hasta);
+    }
 }

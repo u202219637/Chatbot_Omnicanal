@@ -2,6 +2,7 @@ package pe.edu.upc.shadowchat.serviceInterfaces;
 
 import pe.edu.upc.shadowchat.entities.Conversacion;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,4 +35,11 @@ public interface IConversacionService {
     List<Object[]> topIntenciones();
     List<Object[]> tokensPorDia();
     List<Object[]> countByOrigen();
+
+    // Omnicanalidad — busca activa sin filtrar canal (HU20)
+    Optional<Conversacion> findActivaByUsuario(Long usuarioId);
+
+    // Admin/Asesor — lista todas con filtros (HU22, HU25)
+    List<Conversacion> listAll(String estado, String origen,
+                               LocalDateTime desde, LocalDateTime hasta);
 }

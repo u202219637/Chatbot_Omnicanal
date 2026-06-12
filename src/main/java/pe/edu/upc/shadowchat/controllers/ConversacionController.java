@@ -2,6 +2,7 @@ package pe.edu.upc.shadowchat.controllers;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -11,7 +12,8 @@ import pe.edu.upc.shadowchat.dtos.feedback.FeedbackDTO;
 import pe.edu.upc.shadowchat.dtos.fuenterespuesta.FuenteRespuestaDTO;
 import pe.edu.upc.shadowchat.entities.*;
 import pe.edu.upc.shadowchat.serviceInterfaces.*;
-import pe.edu.upc.shadowchat.serviceInterfaces.IRagService;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,7 +32,7 @@ public class ConversacionController {
 
     // POST /chat/mensaje (HU13, HU14, HU17)
     @PostMapping("/mensaje")
-    @PreAuthorize("hasAuthority('CLIENTE')")
+    @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ADMINISTRADOR')")
     public ResponseEntity<MensajeResponseDTO> enviarMensaje(
             @RequestBody MensajeRequestDTO request) {
 
@@ -38,10 +40,9 @@ public class ConversacionController {
         Usuario usuario = usuarioService.findByUsername(username);
         String origen = request.getOrigen() != null ? request.getOrigen() : "WEB";
 
-        Conversacion conv = conversacionService.findActiva(usuario.getId(), origen)
+        // OMNICANALIDAD: busca conversación activa sin filtrar por canal (HU20)
+        Conversacion conv = conversacionService.findActivaByUsuario(usuario.getId())
                 .orElseGet(() -> {
-                    canalService.findByNombre(origen)
-                            .orElseThrow(() -> new RuntimeException("Canal no existe: " + origen));
                     Conversacion nueva = new Conversacion();
                     nueva.setUsuario(usuario);
                     nueva.setOrigen(origen);
@@ -51,10 +52,10 @@ public class ConversacionController {
                 });
 
         Canal canal = canalService.findByNombre(origen)
-                .orElseThrow(() -> new RuntimeException("Canal no existe"));
+                .orElseThrow(() -> new RuntimeException("Canal no existe: " + origen));
 
-        // Guardar mensaje cliente
         long t0 = System.currentTimeMillis();
+
         Mensaje msgCliente = new Mensaje();
         msgCliente.setConversacion(conv);
         msgCliente.setTipoEmisor("CLIENTE");
@@ -62,7 +63,6 @@ public class ConversacionController {
         msgCliente.setCanal(canal);
         mensajeService.insert(msgCliente);
 
-        // Crear mensaje bot con placeholder para obtener ID
         Mensaje msgBot = new Mensaje();
         msgBot.setConversacion(conv);
         msgBot.setTipoEmisor("BOT");
@@ -70,7 +70,6 @@ public class ConversacionController {
         msgBot.setCanal(canal);
         mensajeService.insert(msgBot);
 
-        // Llamar RAG + OpenAI
         String respuesta;
         try {
             respuesta = ragService.responder(conv, request.getContenido(), msgBot.getId());
@@ -79,12 +78,10 @@ public class ConversacionController {
             respuesta = "Lo siento, hubo un error procesando tu consulta. Intenta de nuevo.";
         }
 
-        // Actualizar mensaje bot con respuesta real
         long tiempoMs = System.currentTimeMillis() - t0;
         msgBot.setContenido(respuesta);
         mensajeService.insert(msgBot);
 
-        // Actualizar métricas conversación
         conv.setCantidadMensajes((conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2);
         conv.setTiempoPromedioRespuestaMs((int) tiempoMs);
         conversacionService.update(conv);
@@ -99,7 +96,7 @@ public class ConversacionController {
         return ResponseEntity.ok(response);
     }
 
-    // GET /chat/{conversacionId}/mensajes (HU13, HU18)
+    // GET /chat/{conversacionId}/mensajes (HU13, HU18) — con canal en cada mensaje
     @GetMapping("/{conversacionId}/mensajes")
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
     public List<MensajeResponseDTO> mensajes(@PathVariable Long conversacionId) {
@@ -114,7 +111,8 @@ public class ConversacionController {
             d.setTokensEntrada(m.getTokensEntrada());
             d.setTokensSalida(m.getTokensSalida());
             d.setFechaEnvio(m.getFechaEnvio());
-            // Fuentes RAG (HU16)
+            // Canal del mensaje para vista omnicanal (HU20)
+            if (m.getCanal() != null) d.setCanalNombre(m.getCanal().getNombre());
             List<FuenteRespuestaDTO> fuentes = fuenteRespuestaService
                     .listByMensaje(m.getId()).stream().map(fr -> {
                         FuenteRespuestaDTO fd = new FuenteRespuestaDTO();
@@ -134,25 +132,28 @@ public class ConversacionController {
         }).collect(Collectors.toList());
     }
 
-    // GET /chat/historial (HU18)
+    // GET /chat/historial — cliente ve sus propias conversaciones (HU18)
     @GetMapping("/historial")
     @PreAuthorize("hasAuthority('CLIENTE')")
     public List<ConversacionListDTO> historial() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         Usuario u = usuarioService.findByUsername(username);
-        return conversacionService.listByUsuario(u.getId()).stream().map(c -> {
-            ConversacionListDTO d = new ConversacionListDTO();
-            d.setId(c.getId());
-            d.setAsunto(c.getAsunto());
-            d.setEstado(c.getEstado());
-            d.setOrigen(c.getOrigen());
-            d.setFechaInicio(c.getFechaInicio());
-            d.setFechaFin(c.getFechaFin());
-            d.setCantidadMensajes(c.getCantidadMensajes());
-            d.setFueResuelta(c.getFueResuelta());
-            d.setSatisfaccion(c.getSatisfaccion());
-            return d;
-        }).collect(Collectors.toList());
+        return toListDTO(conversacionService.listByUsuario(u.getId()));
+    }
+
+    // GET /chat/admin/conversaciones — admin/asesor ven TODAS con filtros (HU22, HU25)
+    @GetMapping("/admin/conversaciones")
+    @PreAuthorize("hasAuthority('ADMINISTRADOR') or hasAuthority('ASESOR')")
+    public List<ConversacionListDTO> todasConversaciones(
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String origen,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        LocalDateTime desdeDateTime = desde != null ? desde.atStartOfDay() : null;
+        LocalDateTime hastaDateTime = hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
+
+        return toListDTO(conversacionService.listAll(estado, origen, desdeDateTime, hastaDateTime));
     }
 
     // PUT /chat/{conversacionId}/cerrar
@@ -180,5 +181,25 @@ public class ConversacionController {
         fb.setComentario(dto.getComentario());
         feedbackService.insert(fb);
         return ResponseEntity.ok().build();
+    }
+
+    private List<ConversacionListDTO> toListDTO(List<Conversacion> list) {
+        return list.stream().map(c -> {
+            ConversacionListDTO d = new ConversacionListDTO();
+            d.setId(c.getId());
+            d.setAsunto(c.getAsunto());
+            d.setEstado(c.getEstado());
+            d.setOrigen(c.getOrigen());
+            d.setFechaInicio(c.getFechaInicio());
+            d.setFechaFin(c.getFechaFin());
+            d.setCantidadMensajes(c.getCantidadMensajes());
+            d.setFueResuelta(c.getFueResuelta());
+            d.setSatisfaccion(c.getSatisfaccion());
+            if (c.getUsuario() != null) {
+                d.setClienteNombre(c.getUsuario().getNombres() + " " + c.getUsuario().getApellidos());
+                d.setClienteUsername(c.getUsuario().getUsername());
+            }
+            return d;
+        }).collect(Collectors.toList());
     }
 }
