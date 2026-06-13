@@ -61,6 +61,16 @@ public class ConversacionServiceImplement implements IConversacionService {
         });
     }
 
+    @Override
+    public Optional<Conversacion> findMasRecienteByUsuario(Long usuarioId) {
+        return conversacionRepository
+                .findFirstByUsuarioIdOrderByFechaInicioDesc(usuarioId);
+    }
+    @Override
+    public List<Object[]> convsPorDia() {
+        return conversacionRepository.convsPorDia();
+    }
+
     @Override public Object[]       kpisMes()                          { return conversacionRepository.kpisMes(); }
     @Override public Object[]       kpisPeriodo(String d, String h)    { return conversacionRepository.kpisPeriodo(d, h); }
     @Override public List<Object[]> topIntenciones()                   { return conversacionRepository.topIntenciones(); }

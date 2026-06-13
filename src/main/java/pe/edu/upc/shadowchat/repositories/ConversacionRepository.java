@@ -90,6 +90,16 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
     Optional<Conversacion> findFirstByUsuarioIdAndEstadoOrderByFechaInicioDesc(
             Long usuarioId, String estado);
 
+    Optional<Conversacion> findFirstByUsuarioIdOrderByFechaInicioDesc(Long usuarioId);
+    @Query("SELECT CAST(c.fechaInicio AS date), " +
+            "SUM(CASE WHEN c.origen = 'WEB' THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN c.origen = 'WHATSAPP' THEN 1 ELSE 0 END) " +
+            "FROM Conversacion c " +
+            "GROUP BY CAST(c.fechaInicio AS date) " +
+            "ORDER BY CAST(c.fechaInicio AS date) ASC")
+
+    List<Object[]> convsPorDia();
+
     // Filtros admin/asesor (HU22, HU25)
     @Query("""
     SELECT c FROM Conversacion c
@@ -104,4 +114,5 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
             @Param("origen") String origen,
             @Param("desde") LocalDateTime desde,
             @Param("hasta")  LocalDateTime hasta);
+
 }

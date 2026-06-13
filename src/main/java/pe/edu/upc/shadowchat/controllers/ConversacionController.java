@@ -97,6 +97,19 @@ public class ConversacionController {
                     : "Ya tienes una solicitud de atención activa. " +
                       "Un asesor te atenderá pronto. 🧑‍💼";
         } else {
+            // Si la conversación está escalada, guardar mensaje pero NO llamar al RAG
+            if ("ESCALADA".equals(conv.getEstado())) {
+                conv.setCantidadMensajes(
+                        (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
+                conversacionService.update(conv);
+
+                MensajeResponseDTO response = new MensajeResponseDTO();
+                response.setConversacionId(conv.getId());
+                response.setTipoEmisor("SISTEMA");
+                response.setContenido("Mensaje enviado. El asesor lo verá pronto.");
+                response.setEscalada(true);
+                return ResponseEntity.ok(response);
+            }
             // Flujo RAG normal
             Mensaje msgBot = new Mensaje();
             msgBot.setConversacion(conv);

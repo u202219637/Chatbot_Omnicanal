@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.shadowchat.dtos.dashboard.*;
 import pe.edu.upc.shadowchat.serviceInterfaces.IConversacionService;
 import pe.edu.upc.shadowchat.serviceInterfaces.IMensajeService;
-
+import pe.edu.upc.shadowchat.dtos.dashboard.ConvPorDiaDTO;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -96,5 +96,17 @@ public class DashboardController {
         long min = ms / 60000;
         long sec = (ms % 60000) / 1000;
         return String.format("%02d:%02d", min, sec);
+    }
+    // GET /admin/dashboard/conversaciones-por-dia
+    @GetMapping("/conversaciones-por-dia")
+    public List<ConvPorDiaDTO> convsPorDia() {
+        return conversacionService.convsPorDia().stream().map(row -> {
+            ConvPorDiaDTO d = new ConvPorDiaDTO();
+            d.setDia(String.valueOf(row[0]));
+            d.setTotalWeb(toLong(row[1]));
+            d.setTotalWhatsapp(toLong(row[2]));
+            d.setTotal(toLong(row[1]) + toLong(row[2]));
+            return d;
+        }).collect(Collectors.toList());
     }
 }

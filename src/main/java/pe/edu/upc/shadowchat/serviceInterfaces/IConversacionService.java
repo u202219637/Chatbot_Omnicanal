@@ -1,5 +1,6 @@
 package pe.edu.upc.shadowchat.serviceInterfaces;
 
+import org.springframework.data.jpa.repository.Query;
 import pe.edu.upc.shadowchat.entities.Conversacion;
 
 import java.time.LocalDateTime;
@@ -39,7 +40,12 @@ public interface IConversacionService {
     // Omnicanalidad — busca activa sin filtrar canal (HU20)
     Optional<Conversacion> findActivaByUsuario(Long usuarioId);
 
+    List<Object[]> convsPorDia();
+
     // Admin/Asesor — lista todas con filtros (HU22, HU25)
     List<Conversacion> listAll(String estado, String origen,
                                LocalDateTime desde, LocalDateTime hasta);
+
+    Optional<Conversacion> findMasRecienteByUsuario(Long usuarioId);
+
 }

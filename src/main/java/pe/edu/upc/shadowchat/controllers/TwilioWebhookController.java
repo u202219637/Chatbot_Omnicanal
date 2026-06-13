@@ -34,7 +34,7 @@ public class TwilioWebhookController {
             Usuario usuario = uc.getUsuario();
 
             Conversacion conv = conversacionService
-                    .findActivaByUsuario(usuario.getId())
+                    .findMasRecienteByUsuario(usuario.getId())
                     .orElseGet(() -> {
                         Conversacion nueva = new Conversacion();
                         nueva.setUsuario(usuario);
