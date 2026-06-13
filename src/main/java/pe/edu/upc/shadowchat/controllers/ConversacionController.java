@@ -29,8 +29,22 @@ public class ConversacionController {
     @Autowired private IUsuarioService usuarioService;
     @Autowired private ICanalService canalService;
     @Autowired private IRagService ragService;
+    @Autowired private IEscalacionService escalacionService;
 
-    // POST /chat/mensaje (HU13, HU14, HU17)
+    // ── Palabras clave que disparan escalación automática ─────────────────────
+    private static final List<String> PALABRAS_ESCALACION = List.of(
+            "quiero un asesor", "hablar con un humano", "hablar con una persona",
+            "quiero hablar con alguien", "necesito ayuda humana", "agente humano",
+            "quiero un agente", "escalar", "soporte humano", "no me ayuda",
+            "hablar con soporte", "asesor humano", "persona real"
+    );
+
+    private boolean detectaEscalacion(String texto) {
+        String lower = texto.toLowerCase();
+        return PALABRAS_ESCALACION.stream().anyMatch(lower::contains);
+    }
+
+    // POST /chat/mensaje (HU13, HU14, HU17, HU22)
     @PostMapping("/mensaje")
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ADMINISTRADOR')")
     public ResponseEntity<MensajeResponseDTO> enviarMensaje(
@@ -38,7 +52,7 @@ public class ConversacionController {
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         Usuario usuario = usuarioService.findByUsername(username);
-        String origen = request.getOrigen() != null ? request.getOrigen() : "WEB";
+        String origen   = request.getOrigen() != null ? request.getOrigen() : "WEB";
 
         // OMNICANALIDAD: busca conversación activa sin filtrar por canal (HU20)
         Conversacion conv = conversacionService.findActivaByUsuario(usuario.getId())
@@ -56,6 +70,7 @@ public class ConversacionController {
 
         long t0 = System.currentTimeMillis();
 
+        // Guardar mensaje del cliente
         Mensaje msgCliente = new Mensaje();
         msgCliente.setConversacion(conv);
         msgCliente.setTipoEmisor("CLIENTE");
@@ -63,40 +78,78 @@ public class ConversacionController {
         msgCliente.setCanal(canal);
         mensajeService.insert(msgCliente);
 
-        Mensaje msgBot = new Mensaje();
-        msgBot.setConversacion(conv);
-        msgBot.setTipoEmisor("BOT");
-        msgBot.setContenido("...");
-        msgBot.setCanal(canal);
-        mensajeService.insert(msgBot);
-
+        // ── Detección automática de escalación ───────────────────────────────
+        boolean escalada = false;
         String respuesta;
-        try {
-            respuesta = ragService.responder(conv, request.getContenido(), msgBot.getId());
-        } catch (Exception e) {
-            e.printStackTrace();
-            respuesta = "Lo siento, hubo un error procesando tu consulta. Intenta de nuevo.";
+
+        if (detectaEscalacion(request.getContenido())) {
+            // Solo escalar si la conversación no está ya escalada
+            if (!"ESCALADA".equals(conv.getEstado())) {
+                try {
+                    escalacionService.crear(conv.getId(),
+                            "Solicitud del cliente: " + request.getContenido(), "MEDIA");
+                    escalada = true;
+                } catch (Exception ignored) {}
+            }
+            respuesta = escalada
+                    ? "Entendido, te conecto con uno de nuestros asesores. " +
+                      "Un momento por favor, ya estamos asignando tu caso. 🧑‍💼"
+                    : "Ya tienes una solicitud de atención activa. " +
+                      "Un asesor te atenderá pronto. 🧑‍💼";
+        } else {
+            // Flujo RAG normal
+            Mensaje msgBot = new Mensaje();
+            msgBot.setConversacion(conv);
+            msgBot.setTipoEmisor("BOT");
+            msgBot.setContenido("...");
+            msgBot.setCanal(canal);
+            mensajeService.insert(msgBot);
+
+            try {
+                respuesta = ragService.responder(conv, request.getContenido(), msgBot.getId());
+            } catch (Exception e) {
+                e.printStackTrace();
+                respuesta = "Lo siento, hubo un error procesando tu consulta. Intenta de nuevo.";
+            }
+
+            long tiempoMs = System.currentTimeMillis() - t0;
+            msgBot.setContenido(respuesta);
+            mensajeService.insert(msgBot);
+
+            conv.setCantidadMensajes(
+                    (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2);
+            conv.setTiempoPromedioRespuestaMs((int) tiempoMs);
+            conversacionService.update(conv);
+
+            MensajeResponseDTO response = new MensajeResponseDTO();
+            response.setConversacionId(conv.getId());
+            response.setTipoEmisor("BOT");
+            response.setContenido(respuesta);
+            response.setEscalada(false);
+            return ResponseEntity.ok(response);
         }
 
-        long tiempoMs = System.currentTimeMillis() - t0;
-        msgBot.setContenido(respuesta);
-        mensajeService.insert(msgBot);
+        // Guardar mensaje bot de escalación
+        Mensaje msgEscalacion = new Mensaje();
+        msgEscalacion.setConversacion(conv);
+        msgEscalacion.setTipoEmisor("BOT");
+        msgEscalacion.setContenido(respuesta);
+        msgEscalacion.setCanal(canal);
+        mensajeService.insert(msgEscalacion);
 
-        conv.setCantidadMensajes((conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2);
-        conv.setTiempoPromedioRespuestaMs((int) tiempoMs);
+        conv.setCantidadMensajes(
+                (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2);
         conversacionService.update(conv);
 
         MensajeResponseDTO response = new MensajeResponseDTO();
-        response.setId(msgBot.getId());
         response.setConversacionId(conv.getId());
         response.setTipoEmisor("BOT");
         response.setContenido(respuesta);
-        response.setFechaEnvio(msgBot.getFechaEnvio());
-        response.setEscalada(false);
+        response.setEscalada(escalada);
         return ResponseEntity.ok(response);
     }
 
-    // GET /chat/{conversacionId}/mensajes (HU13, HU18) — con canal en cada mensaje
+    // GET /chat/{conversacionId}/mensajes (HU13, HU18)
     @GetMapping("/{conversacionId}/mensajes")
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
     public List<MensajeResponseDTO> mensajes(@PathVariable Long conversacionId) {
@@ -111,7 +164,6 @@ public class ConversacionController {
             d.setTokensEntrada(m.getTokensEntrada());
             d.setTokensSalida(m.getTokensSalida());
             d.setFechaEnvio(m.getFechaEnvio());
-            // Canal del mensaje para vista omnicanal (HU20)
             if (m.getCanal() != null) d.setCanalNombre(m.getCanal().getNombre());
             List<FuenteRespuestaDTO> fuentes = fuenteRespuestaService
                     .listByMensaje(m.getId()).stream().map(fr -> {
@@ -152,7 +204,6 @@ public class ConversacionController {
 
         LocalDateTime desdeDateTime = desde != null ? desde.atStartOfDay() : null;
         LocalDateTime hastaDateTime = hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
-
         return toListDTO(conversacionService.listAll(estado, origen, desdeDateTime, hastaDateTime));
     }
 
@@ -160,7 +211,7 @@ public class ConversacionController {
     @PutMapping("/{conversacionId}/cerrar")
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ASESOR')")
     public ResponseEntity<Void> cerrar(@PathVariable Long conversacionId,
-                                       @RequestParam(defaultValue="true") Boolean resuelta) {
+                                       @RequestParam(defaultValue = "true") Boolean resuelta) {
         conversacionService.cerrar(conversacionId, resuelta);
         return ResponseEntity.ok().build();
     }
@@ -182,7 +233,42 @@ public class ConversacionController {
         feedbackService.insert(fb);
         return ResponseEntity.ok().build();
     }
+    // POST /chat/{conversacionId}/mensaje-asesor (HU22 — asesor responde al cliente)
+    @PostMapping("/{conversacionId}/mensaje-asesor")
+    @PreAuthorize("hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
+    public ResponseEntity<MensajeResponseDTO> mensajeAsesor(
+            @PathVariable Long conversacionId,
+            @RequestBody MensajeRequestDTO request) {
 
+        Conversacion conv = conversacionService.searchId(conversacionId);
+        if (conv == null)
+            return ResponseEntity.notFound().build();
+
+        String origen = conv.getOrigen() != null ? conv.getOrigen() : "WEB";
+        Canal canal = canalService.findByNombre(origen)
+                .orElseGet(() -> canalService.findByNombre("WEB")
+                        .orElseThrow(() -> new RuntimeException("Canal WEB no encontrado")));
+
+        Mensaje msg = new Mensaje();
+        msg.setConversacion(conv);
+        msg.setTipoEmisor("ASESOR");
+        msg.setContenido(request.getContenido());
+        msg.setCanal(canal);
+        mensajeService.insert(msg);
+
+        conv.setCantidadMensajes(
+                (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
+        conversacionService.update(conv);
+
+        MensajeResponseDTO response = new MensajeResponseDTO();
+        response.setId(msg.getId());
+        response.setConversacionId(conversacionId);
+        response.setTipoEmisor("ASESOR");
+        response.setContenido(msg.getContenido());
+        response.setFechaEnvio(msg.getFechaEnvio());
+        response.setEscalada(false);
+        return ResponseEntity.ok(response);
+    }
     private List<ConversacionListDTO> toListDTO(List<Conversacion> list) {
         return list.stream().map(c -> {
             ConversacionListDTO d = new ConversacionListDTO();

@@ -34,7 +34,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 path.equals("/categorias") ||
                 path.equals("/marcas") ||
                 path.startsWith("/productos") ||
-                path.startsWith("/usuarios") ||
+                path.equals("/usuarios") ||
                 path.startsWith("/webhook") ||
                 path.startsWith("/swagger-ui") ||
                 path.startsWith("/v3/api-docs")) {

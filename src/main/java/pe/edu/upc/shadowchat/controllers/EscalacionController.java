@@ -9,10 +9,12 @@ import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.shadowchat.dtos.escalacion.*;
 import pe.edu.upc.shadowchat.entities.Escalacion;
 import pe.edu.upc.shadowchat.entities.Usuario;
+import pe.edu.upc.shadowchat.serviceInterfaces.IConversacionService;
 import pe.edu.upc.shadowchat.serviceInterfaces.IEscalacionService;
 import pe.edu.upc.shadowchat.serviceInterfaces.IUsuarioService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -22,6 +24,37 @@ public class EscalacionController {
 
     @Autowired private IEscalacionService escalacionService;
     @Autowired private IUsuarioService usuarioService;
+    @Autowired private IConversacionService conversacionService;
+
+    // ── NUEVO: cliente solicita escalación desde el chat (HU22) ──────────────
+    @PostMapping("/solicitar")
+    @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ADMINISTRADOR')")
+    public ResponseEntity<Map<String, Object>> solicitar(
+            @RequestBody Map<String, String> body) {
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario usuario = usuarioService.findByUsername(username);
+
+        // Busca la conversación activa del usuario
+        var convOpt = conversacionService.findActivaByUsuario(usuario.getId());
+        if (convOpt.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "No tienes una conversación activa."));
+        }
+
+        Long conversacionId = convOpt.get().getId();
+        String motivo    = body.getOrDefault("motivo", "Solicitud del cliente");
+        String prioridad = body.getOrDefault("prioridad", "MEDIA");
+
+        Escalacion e = escalacionService.crear(conversacionId, motivo, prioridad);
+
+        return ResponseEntity.ok(Map.of(
+                "escalacionId",   e.getId(),
+                "conversacionId", conversacionId,
+                "estado",         e.getEstado(),
+                "mensaje",        "Tu consulta fue escalada. Un asesor te atenderá pronto."
+        ));
+    }
 
     // GET /escalaciones (HU22 — asesor y admin)
     @GetMapping
