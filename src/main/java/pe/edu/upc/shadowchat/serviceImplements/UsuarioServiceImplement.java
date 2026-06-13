@@ -19,7 +19,13 @@ public class UsuarioServiceImplement implements IUsuarioService {
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private RolRepository rolRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private pe.edu.upc.shadowchat.repositories.CanalRepository canalRepository;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private pe.edu.upc.shadowchat.repositories.UsuarioCanalRepository usuarioCanalRepository;
     @Override
     public List<Usuario> list() {
         return usuarioRepository.findAll();
@@ -27,17 +33,37 @@ public class UsuarioServiceImplement implements IUsuarioService {
 
     @Override
     public void insert(Usuario usuario) {
-        // BCrypt — igual que AutoGuard, nunca texto plano
         usuario.setPasswordHash(passwordEncoder.encode(usuario.getPasswordHash()));
         usuarioRepository.save(usuario);
 
-        // Rol CLIENTE por defecto si no viene con roles
+        // Rol CLIENTE por defecto
         if (rolRepository.findByUsuarioId(usuario.getId()).isEmpty()) {
             Rol rol = new Rol();
             rol.setRol("CLIENTE");
             rol.setUsuario(usuario);
             rolRepository.save(rol);
         }
+
+        // Auto-vincular canal WEB al registrarse
+        try {
+            pe.edu.upc.shadowchat.entities.Canal canalWeb =
+                    canalRepository.findByNombre("WEB").orElse(null);
+            if (canalWeb != null) {
+                pe.edu.upc.shadowchat.entities.UsuarioCanal uc =
+                        new pe.edu.upc.shadowchat.entities.UsuarioCanal();
+                uc.setUsuario(usuario);
+                uc.setCanal(canalWeb);
+                String telefono = usuario.getTelefono();
+                if (telefono != null && !telefono.isEmpty()) {
+                    uc.setIdentificadorExterno(telefono);
+                } else {
+                    uc.setIdentificadorExterno(usuario.getUsername());
+                }
+                uc.setNombreExterno(usuario.getNombres() + " " + usuario.getApellidos());
+                uc.setActivo(true);
+                usuarioCanalRepository.save(uc);
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override

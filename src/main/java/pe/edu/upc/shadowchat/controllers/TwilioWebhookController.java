@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.shadowchat.entities.*;
 import pe.edu.upc.shadowchat.serviceInterfaces.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/webhook")
 public class TwilioWebhookController {
@@ -17,6 +19,7 @@ public class TwilioWebhookController {
     @Autowired private ICanalService canalService;
     @Autowired private IRagService ragService;
     @Autowired private ITwilioService twilioService;
+    @Autowired private IEscalacionService escalacionService;
 
     @PostMapping(value = "/whatsapp",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
@@ -34,7 +37,7 @@ public class TwilioWebhookController {
             Usuario usuario = uc.getUsuario();
 
             Conversacion conv = conversacionService
-                    .findMasRecienteByUsuario(usuario.getId())
+                    .findActivaByUsuario(usuario.getId())
                     .orElseGet(() -> {
                         Conversacion nueva = new Conversacion();
                         nueva.setUsuario(usuario);
@@ -56,7 +59,41 @@ public class TwilioWebhookController {
             msgCliente.setContenido(body);
             mensajeService.insert(msgCliente);
 
-            // Llama al RAG directamente sin placeholder
+            // Detección de escalación desde WhatsApp
+            List<String> palabrasEscalacion = List.of(
+                    "quiero un asesor", "hablar con un humano", "asesor humano",
+                    "quiero escalar", "escalar", "persona real", "soporte humano",
+                    "agente humano", "quiero hablar con alguien"
+            );
+            String bodyLower = body.toLowerCase();
+            boolean esEscalacion = palabrasEscalacion.stream().anyMatch(bodyLower::contains);
+
+            if (esEscalacion && !"ESCALADA".equals(conv.getEstado())) {
+                try {
+                    escalacionService.crear(conv.getId(),
+                            "Solicitud via WhatsApp: " + body, "MEDIA");
+                } catch (Exception ignored) {}
+                conv.setCantidadMensajes(
+                        (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
+                conversacionService.update(conv);
+                twilioService.enviarWhatsApp(numero,
+                        "Entendido, te conectamos con un asesor. Un momento por favor.");
+                return ResponseEntity.ok(
+                        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>");
+            }
+
+            // Si la conversación está escalada, no responder con IA
+            if ("ESCALADA".equals(conv.getEstado())) {
+                conv.setCantidadMensajes(
+                        (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
+                conversacionService.update(conv);
+                twilioService.enviarWhatsApp(numero,
+                        "Tu mensaje fue recibido. El asesor que te atiende lo verá pronto.");
+                return ResponseEntity.ok(
+                        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>");
+            }
+
+            // Flujo RAG normal
             String respuestaBot;
             try {
                 respuestaBot = ragService.responder(conv, body, null);
@@ -65,7 +102,7 @@ public class TwilioWebhookController {
                 respuestaBot = "Lo siento, hubo un error procesando tu consulta. Por favor intenta de nuevo.";
             }
 
-            // Guarda respuesta del bot en un solo insert
+            // Guarda respuesta del bot
             Mensaje msgBot = new Mensaje();
             msgBot.setConversacion(conv);
             msgBot.setCanal(canal);
@@ -75,16 +112,14 @@ public class TwilioWebhookController {
 
             // Actualiza métricas
             conv.setCantidadMensajes(
-                    (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2
-            );
+                    (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 2);
             conversacionService.update(conv);
 
             // Envía respuesta por WhatsApp
             twilioService.enviarWhatsApp(numero, respuestaBot);
 
             return ResponseEntity.ok(
-                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>"
-            );
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>");
 
         } catch (Exception e) {
             e.printStackTrace();

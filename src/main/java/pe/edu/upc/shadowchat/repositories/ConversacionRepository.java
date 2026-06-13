@@ -114,5 +114,7 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
             @Param("origen") String origen,
             @Param("desde") LocalDateTime desde,
             @Param("hasta")  LocalDateTime hasta);
-
+    // Busca conversación activa O escalada — para omnicanalidad (HU20)
+    Optional<Conversacion> findFirstByUsuarioIdAndEstadoInOrderByFechaInicioDesc(
+            Long usuarioId, java.util.List<String> estados);
 }

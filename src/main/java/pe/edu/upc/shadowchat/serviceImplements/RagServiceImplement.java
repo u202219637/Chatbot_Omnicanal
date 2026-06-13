@@ -95,7 +95,7 @@ public class RagServiceImplement implements IRagService {
 
         // 5. Historial reciente
         List<Mensaje> historialMensajes = mensajeRepository
-                .findTop6ByConversacionIdOrderByFechaEnvioAsc(conv.getId());
+                .findTop12ByConversacionIdOrderByFechaEnvioAsc(conv.getId());
         List<String> historial = historialMensajes.stream()
                 .map(Mensaje::getContenido)
                 .collect(java.util.stream.Collectors.toList());

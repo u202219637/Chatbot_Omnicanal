@@ -88,4 +88,10 @@ public class ConversacionServiceImplement implements IConversacionService {
                                       LocalDateTime desde, LocalDateTime hasta) {
         return conversacionRepository.findAllWithFilters(estado, origen, desde, hasta);
     }
+    @Override
+    public Optional<Conversacion> findActivaOEscaladaByUsuario(Long usuarioId) {
+        return conversacionRepository
+                .findFirstByUsuarioIdAndEstadoInOrderByFechaInicioDesc(
+                        usuarioId, List.of("ABIERTA", "ESCALADA"));
+    }
 }

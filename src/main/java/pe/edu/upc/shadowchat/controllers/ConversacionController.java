@@ -30,6 +30,8 @@ public class ConversacionController {
     @Autowired private ICanalService canalService;
     @Autowired private IRagService ragService;
     @Autowired private IEscalacionService escalacionService;
+    @Autowired private IUsuarioCanalService usuarioCanalService;
+    @Autowired private ITwilioService twilioService;
 
     // ── Palabras clave que disparan escalación automática ─────────────────────
     private static final List<String> PALABRAS_ESCALACION = List.of(
@@ -55,7 +57,7 @@ public class ConversacionController {
         String origen   = request.getOrigen() != null ? request.getOrigen() : "WEB";
 
         // OMNICANALIDAD: busca conversación activa sin filtrar por canal (HU20)
-        Conversacion conv = conversacionService.findActivaByUsuario(usuario.getId())
+        Conversacion conv = conversacionService.findActivaOEscaladaByUsuario(usuario.getId())
                 .orElseGet(() -> {
                     Conversacion nueva = new Conversacion();
                     nueva.setUsuario(usuario);
@@ -272,6 +274,22 @@ public class ConversacionController {
         conv.setCantidadMensajes(
                 (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
         conversacionService.update(conv);
+
+// Enviar por WhatsApp si la conversación tiene canal WhatsApp
+        try {
+            conv.getUsuario().getId();
+            pe.edu.upc.shadowchat.entities.UsuarioCanal ucWA =
+                    usuarioCanalService.listByUsuario(conv.getUsuario().getId())
+                            .stream()
+                            .filter(uc -> "WHATSAPP".equals(uc.getCanal().getNombre()))
+                            .findFirst().orElse(null);
+            if (ucWA != null) {
+                twilioService.enviarWhatsApp(
+                        ucWA.getIdentificadorExterno(),
+                        "[Asesor]: " + request.getContenido()
+                );
+            }
+        } catch (Exception ignored) {}
 
         MensajeResponseDTO response = new MensajeResponseDTO();
         response.setId(msg.getId());

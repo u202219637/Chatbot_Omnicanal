@@ -47,5 +47,5 @@ public interface IConversacionService {
                                LocalDateTime desde, LocalDateTime hasta);
 
     Optional<Conversacion> findMasRecienteByUsuario(Long usuarioId);
-
+    Optional<Conversacion> findActivaOEscaladaByUsuario(Long usuarioId);
 }
