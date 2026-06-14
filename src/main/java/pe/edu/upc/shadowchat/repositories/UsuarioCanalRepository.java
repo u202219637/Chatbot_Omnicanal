@@ -25,4 +25,5 @@ public interface UsuarioCanalRepository extends JpaRepository<UsuarioCanal, Long
     // Verifica si ya existe el vínculo antes de crear uno duplicado
     boolean existsByCanalIdAndIdentificadorExterno(Long canalId,
                                                    String identificadorExterno);
+    Optional<UsuarioCanal> findByUsuarioIdAndCanalNombre(Long usuarioId, String canalNombre);
 }

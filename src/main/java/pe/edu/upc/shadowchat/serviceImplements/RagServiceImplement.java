@@ -108,4 +108,8 @@ public class RagServiceImplement implements IRagService {
         // 7. Llamar OpenAI
         return openAiService.chat(promptFinal, historial, pregunta);
     }
+    @Override
+    public String preguntaDirecta(String systemPrompt, String userPrompt) {
+        return openAiService.chat(systemPrompt, List.of(), userPrompt);
+    }
 }

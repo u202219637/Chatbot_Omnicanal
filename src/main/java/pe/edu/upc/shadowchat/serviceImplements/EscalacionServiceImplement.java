@@ -7,8 +7,10 @@ import pe.edu.upc.shadowchat.entities.Escalacion;
 import pe.edu.upc.shadowchat.entities.Usuario;
 import pe.edu.upc.shadowchat.repositories.ConversacionRepository;
 import pe.edu.upc.shadowchat.repositories.EscalacionRepository;
+import pe.edu.upc.shadowchat.repositories.UsuarioCanalRepository;
 import pe.edu.upc.shadowchat.repositories.UsuarioRepository;
 import pe.edu.upc.shadowchat.serviceInterfaces.IEscalacionService;
+import pe.edu.upc.shadowchat.serviceInterfaces.ITwilioService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,6 +21,8 @@ public class EscalacionServiceImplement implements IEscalacionService {
     @Autowired private EscalacionRepository escalacionRepository;
     @Autowired private ConversacionRepository conversacionRepository;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private ITwilioService twilioService;
+    @Autowired private UsuarioCanalRepository usuarioCanalRepository;
 
     @Override
     public Escalacion crear(Long conversacionId, String motivo, String prioridad) {
@@ -77,10 +81,20 @@ public class EscalacionServiceImplement implements IEscalacionService {
             e.setEstado("CERRADA");
             e.setFechaCierre(LocalDateTime.now());
             escalacionRepository.save(e);
-            // Cierra también la conversacion asociada
             Conversacion conv = e.getConversacion();
             conv.setEstado("CERRADA");
             conversacionRepository.save(conv);
+            // Enviar mensaje de cierre por WhatsApp si el cliente tiene canal registrado
+            try {
+                usuarioCanalRepository
+                        .findByUsuarioIdAndCanalNombre(conv.getUsuario().getId(), "WHATSAPP")
+                        .ifPresent(uc -> twilioService.enviarWhatsApp(
+                                uc.getIdentificadorExterno(),
+                                "✅ Hola, tu caso ha sido cerrado. Esperamos haberte ayudado. " +
+                                        "Si tienes alguna otra consulta, no dudes en escribirnos. " +
+                                        "¡Gracias por elegir ShadowByte! 🙌"
+                        ));
+            } catch (Exception ignored) {}
         });
     }
 
@@ -92,5 +106,43 @@ public class EscalacionServiceImplement implements IEscalacionService {
     @Override
     public long countByEstado(String estado) {
         return escalacionRepository.countByEstado(estado);
+    }
+
+    @Override
+    public void resolver(Long escalacionId) {
+        escalacionRepository.findById(escalacionId).ifPresent(e -> {
+            e.setEstado("RESUELTA");
+            e.setFechaCierre(LocalDateTime.now());
+            escalacionRepository.save(e);
+            Conversacion conv = e.getConversacion();
+            conv.setEstado("CERRADA");
+            conv.setFueResuelta(true);
+            conversacionRepository.save(conv);
+            try {
+                usuarioCanalRepository
+                        .findByUsuarioIdAndCanalNombre(conv.getUsuario().getId(), "WHATSAPP")
+                        .ifPresent(uc -> twilioService.enviarWhatsApp(
+                                uc.getIdentificadorExterno(),
+                                "✅ Tu caso fue atendido exitosamente por el equipo de ShadowByte. " +
+                                        "Si necesitas ayuda adicional, no dudes en contactarnos nuevamente por nuestra página web " +
+                                        "o al número +51 910 312 340. ¡Estamos para ayudarte! 🙌"
+                        ));
+            } catch (Exception ignored) {}
+        });
+    }
+
+    @Override
+    public List<Escalacion> listTodas(String estado) {
+        if (estado == null || estado.isEmpty() || estado.equals("TODOS")) {
+            return escalacionRepository.findAllByOrderByFechaCreacionDesc();
+        }
+        return escalacionRepository.findByEstadoOrderByFechaCreacionDesc(estado);
+    }
+    @Override
+    public void cambiarPrioridad(Long escalacionId, String prioridad) {
+        escalacionRepository.findById(escalacionId).ifPresent(e -> {
+            e.setPrioridad(prioridad);
+            escalacionRepository.save(e);
+        });
     }
 }

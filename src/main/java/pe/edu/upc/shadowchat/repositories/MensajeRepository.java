@@ -46,4 +46,5 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
     List<Object[]> documentosMasUsados();
     List<Mensaje> findTop6ByConversacionIdOrderByFechaEnvioAsc(Long conversacionId);
     List<Mensaje> findTop12ByConversacionIdOrderByFechaEnvioAsc(Long conversacionId);
+    long countByConversacionIdAndTipoEmisor(Long conversacionId, String tipoEmisor);
 }

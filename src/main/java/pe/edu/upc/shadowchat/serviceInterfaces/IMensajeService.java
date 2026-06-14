@@ -18,4 +18,5 @@ public interface IMensajeService {
 
     // Total de tokens de una conversación (HU31)
     Object[] sumaTokens(Long conversacionId);
+    long countByConversacionIdAndTipoEmisor(Long conversacionId, String tipoEmisor);
 }

@@ -37,7 +37,7 @@ public class TwilioWebhookController {
             Usuario usuario = uc.getUsuario();
 
             Conversacion conv = conversacionService
-                    .findActivaByUsuario(usuario.getId())
+                    .findActivaOEscaladaByUsuario(usuario.getId())
                     .orElseGet(() -> {
                         Conversacion nueva = new Conversacion();
                         nueva.setUsuario(usuario);
@@ -60,14 +60,10 @@ public class TwilioWebhookController {
             mensajeService.insert(msgCliente);
 
             // Detección de escalación desde WhatsApp
-            List<String> palabrasEscalacion = List.of(
-                    "quiero un asesor", "hablar con un humano", "asesor humano",
-                    "quiero escalar", "escalar", "persona real", "soporte humano",
-                    "agente humano", "quiero hablar con alguien"
-            );
-            String bodyLower = body.toLowerCase();
-            boolean esEscalacion = palabrasEscalacion.stream().anyMatch(bodyLower::contains);
-
+            boolean esEscalacion = ragService.preguntaDirecta(
+                    "Eres un clasificador. Responde SOLO 'SI' si el cliente pide explícitamente hablar con un asesor, agente o persona humana. En CUALQUIER otro caso responde 'NO'.",
+                    body
+            ).trim().toUpperCase().startsWith("SI");
             if (esEscalacion && !"ESCALADA".equals(conv.getEstado())) {
                 try {
                     escalacionService.crear(conv.getId(),
@@ -83,15 +79,19 @@ public class TwilioWebhookController {
             }
 
             // Si la conversación está escalada, no responder con IA
-            if ("ESCALADA".equals(conv.getEstado())) {
-                conv.setCantidadMensajes(
-                        (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
-                conversacionService.update(conv);
-                twilioService.enviarWhatsApp(numero,
-                        "Tu mensaje fue recibido. El asesor que te atiende lo verá pronto.");
-                return ResponseEntity.ok(
-                        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>");
-            }
+                    if ("ESCALADA".equals(conv.getEstado())) {
+                        long mensajesCliente = mensajeService
+                                .countByConversacionIdAndTipoEmisor(conv.getId(), "CLIENTE");
+                        conv.setCantidadMensajes(
+                                (conv.getCantidadMensajes() != null ? conv.getCantidadMensajes() : 0) + 1);
+                        conversacionService.update(conv);
+                        if (mensajesCliente <= 1) {
+                            twilioService.enviarWhatsApp(numero,
+                                    "Tu mensaje fue recibido. El asesor que te atiende lo verá pronto.");
+                        }
+                        return ResponseEntity.ok(
+                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>");
+                    }
 
             // Flujo RAG normal
             String respuestaBot;

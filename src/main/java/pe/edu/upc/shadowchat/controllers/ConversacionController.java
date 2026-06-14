@@ -42,8 +42,16 @@ public class ConversacionController {
     );
 
     private boolean detectaEscalacion(String texto) {
-        String lower = texto.toLowerCase();
-        return PALABRAS_ESCALACION.stream().anyMatch(lower::contains);
+        try {
+            return ragService.preguntaDirecta(
+                    "Eres un clasificador. Responde SOLO 'SI' si el cliente pide explícitamente hablar con un asesor, agente o persona humana. En CUALQUIER otro caso responde 'NO'.",
+                    texto
+            ).trim().toUpperCase().startsWith("SI");
+        } catch (Exception e) {
+            String lower = texto.toLowerCase();
+            return List.of("asesor", "agente", "humano", "persona real")
+                    .stream().anyMatch(lower::contains);
+        }
     }
 
     // POST /chat/mensaje (HU13, HU14, HU17, HU22)
@@ -266,6 +274,9 @@ public class ConversacionController {
 
         Mensaje msg = new Mensaje();
         msg.setConversacion(conv);
+        String asesorUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario asesorUser = usuarioService.findByUsername(asesorUsername);
+        String nombreAsesor = asesorUser.getNombres() + " " + asesorUser.getApellidos();
         msg.setTipoEmisor("ASESOR");
         msg.setContenido(request.getContenido());
         msg.setCanal(canal);
@@ -286,8 +297,7 @@ public class ConversacionController {
             if (ucWA != null) {
                 twilioService.enviarWhatsApp(
                         ucWA.getIdentificadorExterno(),
-                        "[Asesor]: " + request.getContenido()
-                );
+                        "[Asesor " + nombreAsesor + "]: " + request.getContenido()                );
             }
         } catch (Exception ignored) {}
 

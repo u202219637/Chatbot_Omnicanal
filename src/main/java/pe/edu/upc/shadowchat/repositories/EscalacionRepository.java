@@ -23,4 +23,6 @@ public interface EscalacionRepository extends JpaRepository<Escalacion, Long> {
 
     // Conteo por estado (HU25 — dashboard)
     long countByEstado(String estado);
+    List<Escalacion> findAllByOrderByFechaCreacionDesc();
+    List<Escalacion> findByEstadoOrderByFechaCreacionDesc(String estado);
 }

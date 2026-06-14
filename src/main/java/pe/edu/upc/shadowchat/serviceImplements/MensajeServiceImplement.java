@@ -37,4 +37,8 @@ public class MensajeServiceImplement implements IMensajeService {
     public Object[] sumaTokens(Long conversacionId) {
         return mensajeRepository.sumaTokensByConversacion(conversacionId);
     }
+    @Override
+    public long countByConversacionIdAndTipoEmisor(Long conversacionId, String tipoEmisor) {
+        return mensajeRepository.countByConversacionIdAndTipoEmisor(conversacionId, tipoEmisor);
+    }
 }

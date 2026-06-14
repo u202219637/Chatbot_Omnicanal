@@ -59,8 +59,9 @@ public class EscalacionController {
     // GET /escalaciones (HU22 — asesor y admin)
     @GetMapping
     @PreAuthorize("hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
-    public List<EscalacionListDTO> listar() {
-        return escalacionService.listActivas().stream()
+    public List<EscalacionListDTO> listar(
+            @RequestParam(required = false, defaultValue = "TODOS") String estado) {
+        return escalacionService.listTodas(estado).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
@@ -100,6 +101,9 @@ public class EscalacionController {
     @PutMapping("/{id}/iniciar")
     @PreAuthorize("hasAuthority('ASESOR')")
     public ResponseEntity<Void> iniciar(@PathVariable Long id) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario asesor = usuarioService.findByUsername(username);
+        escalacionService.asignar(id, asesor.getId());
         escalacionService.iniciarAtencion(id);
         return ResponseEntity.ok().build();
     }
@@ -132,5 +136,21 @@ public class EscalacionController {
         if (e.getAsesor() != null)
             d.setAsesorNombre(e.getAsesor().getNombres() + " " + e.getAsesor().getApellidos());
         return d;
+    }
+
+    // PUT /escalaciones/{id}/resolver (marca como resuelta con venta/gestión exitosa)
+    @PutMapping("/{id}/resolver")
+    @PreAuthorize("hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
+    public ResponseEntity<Void> resolver(@PathVariable Long id) {
+        escalacionService.resolver(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/prioridad")
+    @PreAuthorize("hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
+    public ResponseEntity<Void> cambiarPrioridad(@PathVariable Long id,
+                                                 @RequestBody Map<String, String> body) {
+        escalacionService.cambiarPrioridad(id, body.get("prioridad"));
+        return ResponseEntity.ok().build();
     }
 }

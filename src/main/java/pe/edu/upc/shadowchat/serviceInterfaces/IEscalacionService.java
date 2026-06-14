@@ -32,4 +32,7 @@ public interface IEscalacionService {
 
     // Conteos para el resumen del dashboard (HU25)
     long countByEstado(String estado);
+    void resolver(Long escalacionId);
+    List<Escalacion> listTodas(String estado);
+    void cambiarPrioridad(Long escalacionId, String prioridad);
 }
