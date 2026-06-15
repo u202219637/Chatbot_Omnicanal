@@ -145,4 +145,9 @@ public class EscalacionServiceImplement implements IEscalacionService {
             escalacionRepository.save(e);
         });
     }
+
+    @Override
+    public Escalacion findById(Long id) {
+        return escalacionRepository.findById(id).orElse(null);
+    }
 }

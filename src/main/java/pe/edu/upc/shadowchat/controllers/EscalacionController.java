@@ -153,4 +153,12 @@ public class EscalacionController {
         escalacionService.cambiarPrioridad(id, body.get("prioridad"));
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
+    public ResponseEntity<EscalacionListDTO> getById(@PathVariable Long id) {
+        Escalacion e = escalacionService.findById(id);
+        if (e == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(toDTO(e));
+    }
 }

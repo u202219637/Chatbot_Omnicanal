@@ -101,7 +101,7 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
     List<Object[]> convsPorDia();
 
     // Filtros admin/asesor (HU22, HU25)
-    @Query("""
+    /*@Query("""
     SELECT c FROM Conversacion c
     WHERE (:estado IS NULL OR c.estado = :estado)
       AND (:origen IS NULL OR c.origen = :origen)
@@ -113,7 +113,22 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
             @Param("estado") String estado,
             @Param("origen") String origen,
             @Param("desde") LocalDateTime desde,
-            @Param("hasta")  LocalDateTime hasta);
+            @Param("hasta")  LocalDateTime hasta);*/
+
+    @Query(value = """
+    SELECT * FROM conversacion c
+    WHERE (:estado IS NULL OR c.estado = :estado)
+      AND (:origen IS NULL OR c.origen = :origen)
+      AND (CAST(:desde AS timestamp) IS NULL OR c.fecha_inicio >= CAST(:desde AS timestamp))
+      AND (CAST(:hasta AS timestamp) IS NULL OR c.fecha_inicio < CAST(:hasta AS timestamp))
+    ORDER BY c.fecha_inicio DESC
+    """, nativeQuery = true)
+    List<Conversacion> findAllWithFilters(
+            @Param("estado") String estado,
+            @Param("origen") String origen,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta);
+
     // Busca conversación activa O escalada — para omnicanalidad (HU20)
     Optional<Conversacion> findFirstByUsuarioIdAndEstadoInOrderByFechaInicioDesc(
             Long usuarioId, java.util.List<String> estados);

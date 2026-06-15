@@ -51,14 +51,12 @@ public class OpenAiServiceImplement implements IOpenAiService {
     }
 
     @Override
-    public String chat(String systemPrompt, List<String> historial, String mensajeUsuario) {
+    public String chat(String systemPrompt, List<Map<String, String>> historial, String mensajeUsuario) {
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "system", "content", systemPrompt));
 
-        for (int i = 0; i < historial.size(); i++) {
-            String role = (i % 2 == 0) ? "user" : "assistant";
-            messages.add(Map.of("role", role, "content", historial.get(i)));
-        }
+        messages.addAll(historial);
+
         messages.add(Map.of("role", "user", "content", mensajeUsuario));
 
         Map response = webClient.post()

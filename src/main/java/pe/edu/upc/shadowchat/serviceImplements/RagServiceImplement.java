@@ -6,10 +6,11 @@ import pe.edu.upc.shadowchat.entities.*;
 import pe.edu.upc.shadowchat.repositories.*;
 import pe.edu.upc.shadowchat.serviceInterfaces.IOpenAiService;
 import pe.edu.upc.shadowchat.serviceInterfaces.IRagService;
-
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
 
 @Service
 public class RagServiceImplement implements IRagService {
@@ -37,6 +38,7 @@ public class RagServiceImplement implements IRagService {
     6. Cierra animando a agregar al carrito o consultar por WhatsApp.
     7. Si preguntan por garantía: todos nuestros productos tienen garantía de fábrica.
     8. Si preguntan por delivery: hacemos delivery a Lima Metropolitana.
+    9. Si el cliente hace referencia a productos consultados ANTERIORMENTE o pide recordar algo de la conversación, usa el HISTORIAL DE MENSAJES (no el contexto RAG) para responder. El historial está en los mensajes previos de esta misma conversación. Nunca digas que no tienes esa información si aparece en el historial.
     
     CONTEXTO DE PRODUCTOS (usa esto para responder):
     {contexto}
@@ -47,9 +49,12 @@ public class RagServiceImplement implements IRagService {
     @Override
     public String responder(Conversacion conv, String pregunta, Long mensajeBotId) {
         // 1. Embedding de la pregunta
-        float[] embedding = openAiService.embedding(pregunta);
+        // DESPUÉS
+        float[] embRaw = openAiService.embedding(pregunta);
+        String embedding = "[" + java.util.stream.IntStream.range(0, embRaw.length)
+                .mapToObj(i -> String.valueOf(embRaw[i]))
+                .collect(Collectors.joining(",")) + "]";
 
-        // 2. Buscar fragmentos con manejo de nulls en score
         List<Object[]> resultados;
         try {
             resultados = fragmentoRepository.findTopKWithScore(embedding, 5);
@@ -96,9 +101,13 @@ public class RagServiceImplement implements IRagService {
         // 5. Historial reciente
         List<Mensaje> historialMensajes = mensajeRepository
                 .findTop12ByConversacionIdOrderByFechaEnvioAsc(conv.getId());
-        List<String> historial = historialMensajes.stream()
-                .map(Mensaje::getContenido)
-                .collect(java.util.stream.Collectors.toList());
+        List<Map<String, String>> historial = historialMensajes.stream()
+                .filter(m -> "CLIENTE".equals(m.getTipoEmisor()) || "BOT".equals(m.getTipoEmisor()))
+                .map(m -> Map.of(
+                        "role",    "CLIENTE".equals(m.getTipoEmisor()) ? "user" : "assistant",
+                        "content", m.getContenido() != null ? m.getContenido() : ""
+                ))
+                .collect(Collectors.toList());
 
         // 6. System prompt con contexto
         String promptFinal = SYSTEM_PROMPT.replace("{contexto}",
@@ -110,6 +119,6 @@ public class RagServiceImplement implements IRagService {
     }
     @Override
     public String preguntaDirecta(String systemPrompt, String userPrompt) {
-        return openAiService.chat(systemPrompt, List.of(), userPrompt);
+        return openAiService.chat(systemPrompt, List.<Map<String,String>>of(), userPrompt);
     }
 }

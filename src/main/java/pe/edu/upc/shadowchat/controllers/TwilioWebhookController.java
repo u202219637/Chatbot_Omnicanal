@@ -32,15 +32,45 @@ public class TwilioWebhookController {
             String numero = from.replace("whatsapp:", "").trim();
             if (!numero.startsWith("+")) numero = "+" + numero;
 
-            UsuarioCanal uc = usuarioCanalService
-                    .findByIdentificador("WHATSAPP", numero);
-            Usuario usuario = uc.getUsuario();
+            final UsuarioCanal[] ucHolder = {null};
+            final Usuario[] usuarioHolder = {null};
+
+            try {
+                ucHolder[0] = usuarioCanalService.findByIdentificador("WHATSAPP", numero);
+                usuarioHolder[0] = ucHolder[0].getUsuario();
+            } catch (Exception ex) {
+                String numeroSinPlus = numero.replace("+51", "").trim();
+
+                usuarioHolder[0] = usuarioCanalService.findUsuarioByTelefono(numero, numeroSinPlus);
+
+                if (usuarioHolder[0] == null) {
+                    throw new RuntimeException("Usuario no registrado");
+                }
+
+                Canal canalWA = canalService.findByNombre("WHATSAPP")
+                        .orElseThrow(() -> new RuntimeException("Canal WA no existe"));
+
+                UsuarioCanal nuevoUc = new UsuarioCanal();
+                nuevoUc.setUsuario(usuarioHolder[0]);
+                nuevoUc.setCanal(canalWA);
+                nuevoUc.setIdentificadorExterno(numero);
+                nuevoUc.setNombreExterno(
+                        usuarioHolder[0].getNombres() + " " + usuarioHolder[0].getApellidos()
+                );
+                nuevoUc.setActivo(true);
+                nuevoUc.setFechaVinculacion(java.time.LocalDateTime.now());
+
+                ucHolder[0] = usuarioCanalService.save(nuevoUc);
+            }
+
+            UsuarioCanal uc = ucHolder[0];
+            Usuario usuario = usuarioHolder[0];
 
             Conversacion conv = conversacionService
                     .findActivaOEscaladaByUsuario(usuario.getId())
                     .orElseGet(() -> {
                         Conversacion nueva = new Conversacion();
-                        nueva.setUsuario(usuario);
+                        nueva.setUsuario(usuarioHolder[0]);
                         nueva.setOrigen("WHATSAPP");
                         nueva.setEstado("ABIERTA");
                         conversacionService.insert(nueva);

@@ -36,7 +36,7 @@ public interface FragmentoConocimientoRepository
             LIMIT :topK
             """, nativeQuery = true)
     List<FragmentoConocimiento> findTopKBySimilarity(
-            @Param("embedding") float[] embedding,
+            @Param("embedding") String embedding,   // ← String
             @Param("topK")      int topK);
 
     /*
@@ -44,16 +44,16 @@ public interface FragmentoConocimientoRepository
      * Retorna: [id, contenido, score]  (Object[])
      */
     @Query(value = """
-            SELECT id,
-                   contenido,
-                   1 - (embedding <=> CAST(:embedding AS vector)) AS score
-            FROM fragmento_conocimiento
-            WHERE estado = true
-            ORDER BY embedding <=> CAST(:embedding AS vector)
-            LIMIT :topK
-            """, nativeQuery = true)
+        SELECT id,
+               contenido,
+               1 - (embedding <=> CAST(:embedding AS vector)) AS score
+        FROM fragmento_conocimiento
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <=> CAST(:embedding AS vector)
+        LIMIT :topK
+        """, nativeQuery = true)
     List<Object[]> findTopKWithScore(
-            @Param("embedding") float[] embedding,
+            @Param("embedding") String embedding,
             @Param("topK")      int topK);
 
     // Lista fragmentos de un documento para el panel de preview (HU30)

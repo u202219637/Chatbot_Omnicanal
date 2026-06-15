@@ -9,7 +9,6 @@ import pe.edu.upc.shadowchat.repositories.CanalRepository;
 import pe.edu.upc.shadowchat.repositories.UsuarioCanalRepository;
 import pe.edu.upc.shadowchat.repositories.UsuarioRepository;
 import pe.edu.upc.shadowchat.serviceInterfaces.IUsuarioCanalService;
-
 import java.util.List;
 
 @Service
@@ -71,5 +70,16 @@ public class UsuarioCanalServiceImplement implements IUsuarioCanalService {
             uc.setActivo(false);
             usuarioCanalRepository.save(uc);
         });
+    }
+    @Override
+    public Usuario findUsuarioByTelefono(String conPlus, String sinPlus) {
+        return usuarioRepository.findByTelefono(conPlus)
+                .or(() -> usuarioRepository.findByTelefono(sinPlus))
+                .orElse(null);
+    }
+
+    @Override
+    public UsuarioCanal save(UsuarioCanal uc) {
+        return usuarioCanalRepository.save(uc);
     }
 }

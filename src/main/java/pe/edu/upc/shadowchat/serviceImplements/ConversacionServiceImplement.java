@@ -94,4 +94,5 @@ public class ConversacionServiceImplement implements IConversacionService {
                 .findFirstByUsuarioIdAndEstadoInOrderByFechaInicioDesc(
                         usuarioId, List.of("ABIERTA", "ESCALADA"));
     }
+
 }

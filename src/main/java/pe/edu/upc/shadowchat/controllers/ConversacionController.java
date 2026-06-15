@@ -56,7 +56,7 @@ public class ConversacionController {
 
     // POST /chat/mensaje (HU13, HU14, HU17, HU22)
     @PostMapping("/mensaje")
-    @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ADMINISTRADOR')")
+    @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ADMINISTRADOR') or hasAuthority('ASESOR')")
     public ResponseEntity<MensajeResponseDTO> enviarMensaje(
             @RequestBody MensajeRequestDTO request) {
 

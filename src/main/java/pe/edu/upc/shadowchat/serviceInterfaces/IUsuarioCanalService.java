@@ -1,5 +1,6 @@
 package pe.edu.upc.shadowchat.serviceInterfaces;
 
+import pe.edu.upc.shadowchat.entities.Usuario;
 import pe.edu.upc.shadowchat.entities.UsuarioCanal;
 
 import java.util.List;
@@ -25,4 +26,6 @@ public interface IUsuarioCanalService {
 
     // Desactiva un vínculo sin borrarlo (auditoría)
     void desactivar(Long id);
+    Usuario findUsuarioByTelefono(String telefonoConPlus, String telefonoSinPlus);
+    UsuarioCanal save(UsuarioCanal uc);
 }

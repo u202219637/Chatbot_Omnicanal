@@ -84,10 +84,9 @@ public class UsuarioServiceImplement implements IUsuarioService {
 
     @Override
     public void delete(Long id) {
-        Optional<Usuario> opt = usuarioRepository.findById(id);
-        opt.ifPresent(u -> {
-            rolRepository.findByUsuarioId(id).forEach(rolRepository::delete);
-            usuarioRepository.deleteById(id);
+        usuarioRepository.findById(id).ifPresent(u -> {
+            u.setEstado(false);
+            usuarioRepository.save(u);
         });
     }
 

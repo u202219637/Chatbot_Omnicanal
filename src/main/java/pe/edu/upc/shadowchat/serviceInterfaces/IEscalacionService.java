@@ -35,4 +35,5 @@ public interface IEscalacionService {
     void resolver(Long escalacionId);
     List<Escalacion> listTodas(String estado);
     void cambiarPrioridad(Long escalacionId, String prioridad);
+    Escalacion findById(Long id);
 }

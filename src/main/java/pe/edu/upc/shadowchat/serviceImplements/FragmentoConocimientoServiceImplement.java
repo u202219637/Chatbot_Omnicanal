@@ -7,6 +7,7 @@ import pe.edu.upc.shadowchat.repositories.FragmentoConocimientoRepository;
 import pe.edu.upc.shadowchat.serviceInterfaces.IFragmentoConocimientoService;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class FragmentoConocimientoServiceImplement implements IFragmentoConocimientoService {
@@ -25,7 +26,10 @@ public class FragmentoConocimientoServiceImplement implements IFragmentoConocimi
     }
 
     @Override
-    public List<Object[]> buscarSimilares(float[] embedding, int topK) {
+    public List<Object[]> buscarSimilares(float[] embRaw, int topK) {
+        String embedding = "[" + java.util.stream.IntStream.range(0, embRaw.length)
+                .mapToObj(i -> String.valueOf(embRaw[i]))
+                .collect(Collectors.joining(",")) + "]";
         return fragmentoRepository.findTopKWithScore(embedding, topK);
     }
 

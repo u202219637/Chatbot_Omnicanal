@@ -42,4 +42,5 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
             ORDER BY r.rol
             """, nativeQuery = true)
     List<Object[]> countByRol();
+    Optional<Usuario> findByTelefono(String telefono);
 }

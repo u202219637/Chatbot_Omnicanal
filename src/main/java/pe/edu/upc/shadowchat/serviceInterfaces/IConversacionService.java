@@ -48,4 +48,5 @@ public interface IConversacionService {
 
     Optional<Conversacion> findMasRecienteByUsuario(Long usuarioId);
     Optional<Conversacion> findActivaOEscaladaByUsuario(Long usuarioId);
+
 }
