@@ -17,4 +17,9 @@ public interface IFeedbackService {
 
     // Motivos más frecuentes para reporte (HU26)
     List<Object[]> topMotivos();
+    Object[] resumenPorAsesor(Long asesorId);
+    List<Object[]> distribucionPorAsesor(Long asesorId);
+    List<Object[]> comentariosRecientesPorAsesor(Long asesorId);
+    List<Object[]> comentariosRecientesGlobal();
+    List<Object[]> palabrasFrecuentes();
 }

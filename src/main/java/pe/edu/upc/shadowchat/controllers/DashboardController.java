@@ -1,5 +1,6 @@
 package pe.edu.upc.shadowchat.controllers;
 
+import pe.edu.upc.shadowchat.serviceInterfaces.IFeedbackService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ public class DashboardController {
 
     @Autowired private IConversacionService conversacionService;
     @Autowired private IMensajeService mensajeService;
+    @Autowired private IFeedbackService feedbackService;
 
     // GET /admin/dashboard/kpis (HU25)
     @GetMapping("/kpis")
@@ -106,6 +108,31 @@ public class DashboardController {
             d.setTotalWeb(toLong(row[1]));
             d.setTotalWhatsapp(toLong(row[2]));
             d.setTotal(toLong(row[1]) + toLong(row[2]));
+            return d;
+        }).collect(Collectors.toList());
+    }
+
+    @GetMapping("/comentarios")
+    public List<ComentarioGlobalDTO> comentarios() {
+        return feedbackService.comentariosRecientesGlobal().stream().map(row -> {
+            ComentarioGlobalDTO d = new ComentarioGlobalDTO();
+            d.setCalificacion(row[0] != null ? ((Number) row[0]).intValue() : null);
+            d.setMotivo(row[1] != null ? row[1].toString() : null);
+            d.setComentario(row[2] != null ? row[2].toString() : null);
+            d.setFecha(row[3] != null ? ((java.sql.Timestamp) row[3]).toLocalDateTime() : null);
+            String nombre = (row[4] != null ? row[4].toString() : "") +
+                    " " + (row[5] != null ? row[5].toString() : "");
+            d.setClienteNombre(nombre.trim());
+            return d;
+        }).collect(Collectors.toList());
+    }
+
+    @GetMapping("/palabras-frecuentes")
+    public List<PalabraFrecuenteDTO> palabrasFrecuentes() {
+        return feedbackService.palabrasFrecuentes().stream().map(row -> {
+            PalabraFrecuenteDTO d = new PalabraFrecuenteDTO();
+            d.setPalabra(String.valueOf(row[0]));
+            d.setTotal(toLong(row[1]));
             return d;
         }).collect(Collectors.toList());
     }

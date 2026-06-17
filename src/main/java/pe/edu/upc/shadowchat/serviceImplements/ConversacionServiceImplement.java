@@ -71,7 +71,10 @@ public class ConversacionServiceImplement implements IConversacionService {
         return conversacionRepository.convsPorDia();
     }
 
-    @Override public Object[]       kpisMes()                          { return conversacionRepository.kpisMes(); }
+    @Override public Object[] kpisMes() {
+        List<Object[]> result = conversacionRepository.kpisMes();
+        return (result != null && !result.isEmpty()) ? result.get(0) : new Object[4];
+    }
     @Override public Object[]       kpisPeriodo(String d, String h)    { return conversacionRepository.kpisPeriodo(d, h); }
     @Override public List<Object[]> topIntenciones()                   { return conversacionRepository.topIntenciones(); }
     @Override public List<Object[]> tokensPorDia()                     { return conversacionRepository.tokensPorDia(); }

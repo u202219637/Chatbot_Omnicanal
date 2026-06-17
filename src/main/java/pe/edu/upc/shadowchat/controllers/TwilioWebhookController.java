@@ -126,19 +126,19 @@ public class TwilioWebhookController {
             // Flujo RAG normal
             String respuestaBot;
             try {
-                respuestaBot = ragService.responder(conv, body, null);
+                Mensaje msgBotTemp = new Mensaje();
+                msgBotTemp.setConversacion(conv);
+                msgBotTemp.setCanal(canal);
+                msgBotTemp.setTipoEmisor("BOT");
+                msgBotTemp.setContenido("...");
+                mensajeService.insert(msgBotTemp);
+                respuestaBot = ragService.responder(conv, body, msgBotTemp.getId());
+                msgBotTemp.setContenido(respuestaBot);
+                mensajeService.insert(msgBotTemp);
             } catch (Exception e) {
                 e.printStackTrace();
                 respuestaBot = "Lo siento, hubo un error procesando tu consulta. Por favor intenta de nuevo.";
             }
-
-            // Guarda respuesta del bot
-            Mensaje msgBot = new Mensaje();
-            msgBot.setConversacion(conv);
-            msgBot.setCanal(canal);
-            msgBot.setTipoEmisor("BOT");
-            msgBot.setContenido(respuestaBot);
-            mensajeService.insert(msgBot);
 
             // Actualiza métricas
             conv.setCantidadMensajes(

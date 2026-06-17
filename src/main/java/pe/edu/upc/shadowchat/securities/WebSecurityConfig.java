@@ -67,6 +67,7 @@ public class WebSecurityConfig {
                         .requestMatchers(antMatcher("/productos")).permitAll()
                         .requestMatchers(antMatcher("/productos/**")).permitAll()
                         .requestMatchers(antMatcher("/webhook/**")).permitAll()
+                        .requestMatchers(antMatcher("/auth/**")).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",

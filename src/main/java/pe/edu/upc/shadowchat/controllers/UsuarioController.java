@@ -36,8 +36,19 @@ public class UsuarioController {
         u.setCorreo(dto.getCorreo());
         u.setTelefono(dto.getTelefono());
         u.setUsername(dto.getUsername());
-        u.setPasswordHash(dto.getPassword()); // UsuarioServiceImplement aplica BCrypt
+        u.setPasswordHash(dto.getPassword());
         usuarioService.insert(u);
+
+        // Solo crear canal WHATSAPP si tiene teléfono
+        if (dto.getTelefono() != null && !dto.getTelefono().isBlank()) {
+            try {
+                String tel = dto.getTelefono().trim();
+                if (!tel.startsWith("+")) tel = "+51" + tel;
+                usuarioCanalService.vincular(u.getId(), "WHATSAPP",
+                        tel, dto.getNombres() + " " + dto.getApellidos());
+            } catch (Exception ignored) {}
+        }
+
         return ResponseEntity.ok().build();
     }
 

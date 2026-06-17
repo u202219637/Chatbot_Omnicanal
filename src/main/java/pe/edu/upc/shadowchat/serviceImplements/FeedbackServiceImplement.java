@@ -41,4 +41,28 @@ public class FeedbackServiceImplement implements IFeedbackService {
     public List<Object[]> topMotivos() {
         return feedbackRepository.topMotivos();
     }
+
+    @Override
+    public Object[] resumenPorAsesor(Long asesorId) {
+        return feedbackRepository.resumenPorAsesor(asesorId);
+    }
+
+    @Override
+    public List<Object[]> distribucionPorAsesor(Long asesorId) {
+        return feedbackRepository.distribucionPorAsesor(asesorId);
+    }
+
+    @Override
+    public List<Object[]> comentariosRecientesPorAsesor(Long asesorId) {
+        return feedbackRepository.comentariosRecientesPorAsesor(asesorId);
+    }
+    @Override
+    public List<Object[]> comentariosRecientesGlobal() {
+        return feedbackRepository.comentariosRecientesGlobal();
+    }
+
+    @Override
+    public List<Object[]> palabrasFrecuentes() {
+        return feedbackRepository.palabrasFrecuentes();
+    }
 }

@@ -25,15 +25,15 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
     // Retorna: [total, tasa_resolucion_pct, ms_promedio, satisfaccion_avg]
     // ----------------------------------------------------------------
     @Query(value = """
-            SELECT
-                COUNT(*)                                               AS total_consultas,
-                ROUND(AVG(CASE WHEN fue_resuelta THEN 100.0 END), 1) AS tasa_resolucion_pct,
-                ROUND(AVG(tiempo_promedio_respuesta_ms))              AS ms_promedio,
-                ROUND(AVG(satisfaccion), 1)                           AS satisfaccion_promedio
-            FROM conversacion
-            WHERE fecha_inicio >= NOW() - INTERVAL '30 days'
-            """, nativeQuery = true)
-    Object[] kpisMes();
+        SELECT
+            COUNT(*)                                                       AS total_consultas,
+            ROUND(AVG(CASE WHEN fue_resuelta THEN 100.0 ELSE 0.0 END), 1) AS tasa_resolucion_pct,
+            ROUND(AVG(tiempo_promedio_respuesta_ms))                      AS ms_promedio,
+            ROUND(AVG(satisfaccion), 1)                                    AS satisfaccion_promedio
+        FROM conversacion
+        WHERE fecha_inicio >= NOW() - INTERVAL '30 days'
+        """, nativeQuery = true)
+    List<Object[]> kpisMes();
 
     // Consultas frecuentes por intención detectada (HU26)
     @Query(value = """

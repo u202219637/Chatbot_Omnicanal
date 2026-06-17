@@ -1,6 +1,7 @@
 package pe.edu.upc.shadowchat.serviceImplements;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import pe.edu.upc.shadowchat.entities.*;
 import pe.edu.upc.shadowchat.repositories.*;
@@ -19,6 +20,7 @@ public class RagServiceImplement implements IRagService {
     @Autowired private FragmentoConocimientoRepository fragmentoRepository;
     @Autowired private MensajeRepository mensajeRepository;
     @Autowired private FuenteRespuestaRepository fuenteRespuestaRepository;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private static final String SYSTEM_PROMPT = """
     Eres Shadow IA, el asistente virtual de ShadowByte, una tienda tech en Lima, Perú.
@@ -51,14 +53,27 @@ public class RagServiceImplement implements IRagService {
         // 1. Embedding de la pregunta
         // DESPUÉS
         float[] embRaw = openAiService.embedding(pregunta);
-        String embedding = "[" + java.util.stream.IntStream.range(0, embRaw.length)
-                .mapToObj(i -> String.valueOf(embRaw[i]))
-                .collect(Collectors.joining(",")) + "]";
+        StringBuilder sbEmb = new StringBuilder("[");
+        for (int i = 0; i < embRaw.length; i++) {
+            sbEmb.append(String.format("%.8f", embRaw[i]));
+            if (i < embRaw.length - 1) sbEmb.append(",");
+        }
+        sbEmb.append("]");
+        String embStr = sbEmb.toString();
 
         List<Object[]> resultados;
         try {
-            resultados = fragmentoRepository.findTopKWithScore(embedding, 5);
+            String sql = "SELECT id, contenido, " +
+                    "1 - (embedding <=> '" + embStr + "'::vector) AS score " +
+                    "FROM fragmento_conocimiento WHERE embedding IS NOT NULL " +
+                    "ORDER BY embedding <=> '" + embStr + "'::vector LIMIT 5";
+            resultados = jdbcTemplate.query(sql, (rs, rowNum) -> new Object[]{
+                    rs.getLong("id"),
+                    rs.getString("contenido"),
+                    rs.getDouble("score")
+            });
         } catch (Exception e) {
+            System.err.println("RAG JDBC ERROR: " + e.getMessage());
             resultados = new java.util.ArrayList<>();
         }
 
