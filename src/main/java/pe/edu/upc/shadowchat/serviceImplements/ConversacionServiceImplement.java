@@ -97,5 +97,7 @@ public class ConversacionServiceImplement implements IConversacionService {
                 .findFirstByUsuarioIdAndEstadoInOrderByFechaInicioDesc(
                         usuarioId, List.of("ABIERTA", "ESCALADA"));
     }
+    @Override public long countByFueEscaladaTrue() { return conversacionRepository.countByFueEscaladaTrue(); }
+
 
 }

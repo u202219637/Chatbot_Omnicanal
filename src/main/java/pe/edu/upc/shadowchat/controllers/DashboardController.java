@@ -42,6 +42,10 @@ public class DashboardController {
             if ("WEB".equals(origen)) d.setConversacionesWeb(total);
             else if ("WHATSAPP".equals(origen)) d.setConversacionesWhatsapp(total);
         });
+        // Tasa de desvío a asesor = % de conversaciones que tuvieron escalación
+        long totalConv = d.getTotalConversaciones() != null ? d.getTotalConversaciones() : 0;
+        long escaladas = conversacionService.countByFueEscaladaTrue();
+        d.setTasaDesvioHumano(totalConv > 0 ? Math.round((escaladas * 1000.0 / totalConv)) / 10.0 : 0.0);
         return ResponseEntity.ok(d);
     }
 

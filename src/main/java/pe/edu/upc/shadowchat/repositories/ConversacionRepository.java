@@ -132,4 +132,6 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
     // Busca conversación activa O escalada — para omnicanalidad (HU20)
     Optional<Conversacion> findFirstByUsuarioIdAndEstadoInOrderByFechaInicioDesc(
             Long usuarioId, java.util.List<String> estados);
+
+    long countByFueEscaladaTrue();
 }

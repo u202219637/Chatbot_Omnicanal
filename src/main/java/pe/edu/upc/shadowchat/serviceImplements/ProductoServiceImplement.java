@@ -96,8 +96,10 @@ public class ProductoServiceImplement implements IProductoService {
             fragmentoRepository.save(frag);
 
             System.out.println("✅ Embedding generado para: " + p.getNombre());
+            // DESPUÉS — temporal para diagnosticar
         } catch (Exception e) {
-            System.out.println("⚠️ Warning embedding para " + p.getNombre() + ": " + e.getMessage());
+            System.out.println("⚠️ ERROR REAL para " + p.getNombre() + ": " + e.getClass().getSimpleName() + " — " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
