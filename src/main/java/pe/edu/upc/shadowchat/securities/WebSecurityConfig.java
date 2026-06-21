@@ -64,8 +64,8 @@ public class WebSecurityConfig {
                         .requestMatchers(antMatcher("/usuarios/buscar-por-username/**")).permitAll()
                         .requestMatchers(antMatcher("/categorias")).permitAll()
                         .requestMatchers(antMatcher("/marcas")).permitAll()
-                        .requestMatchers(antMatcher("/productos")).permitAll()
-                        .requestMatchers(antMatcher("/productos/**")).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/productos", "/productos/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/productos/comparar").permitAll()
                         .requestMatchers(antMatcher("/webhook/**")).permitAll()
                         .requestMatchers(antMatcher("/auth/**")).permitAll()
                         .requestMatchers(

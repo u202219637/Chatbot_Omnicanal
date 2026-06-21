@@ -134,4 +134,17 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Long
             Long usuarioId, java.util.List<String> estados);
 
     long countByFueEscaladaTrue();
+
+    // Auto-cierre por inactividad (HU20 — omnicanalidad no debe ser un agujero negro):
+    // conversaciones ABIERTA cuyo último mensaje (o fecha_inicio si no tiene mensajes)
+    // fue hace más de N horas.
+    @Query(value = """
+            SELECT c.id FROM conversacion c
+            WHERE c.estado = 'ABIERTA'
+              AND COALESCE(
+                    (SELECT MAX(m.fecha_envio) FROM mensaje m WHERE m.id_conversacion = c.id),
+                    c.fecha_inicio
+                  ) < (NOW() - (CAST(:horas AS text) || ' hours')::interval)
+            """, nativeQuery = true)
+    List<Long> findIdsAbiertasInactivasDesdeHoras(@Param("horas") int horas);
 }

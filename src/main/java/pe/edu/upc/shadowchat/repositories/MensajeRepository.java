@@ -12,7 +12,21 @@ import java.util.List;
 public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
 
     // Todos los mensajes de una conversación ordenados cronológicamente (HU13, HU18)
-    List<Mensaje> findByConversacionIdOrderByFechaEnvioAsc(Long conversacionId);
+    // FIX rendimiento: JOIN FETCH trae canal y usuarioCanal en la misma query.
+    // Este endpoint se llama cada 5s por el polling del chat (cliente y panel
+    // de asesor) — sin esto, cada poll generaba N+1 queries adicionales que,
+    // bajo el plan B1 (CPU compartida), hacían que la respuesta tardara tanto
+    // que el siguiente intervalo de polling ya se había disparado antes de
+    // que la UI procesara la respuesta anterior — se sentía "congelado" hasta
+    // que un click forzaba a Angular a procesar el backlog de respuestas.
+    @Query("""
+            SELECT m FROM Mensaje m
+            LEFT JOIN FETCH m.canal
+            LEFT JOIN FETCH m.usuarioCanal
+            WHERE m.conversacion.id = :convId
+            ORDER BY m.fechaEnvio ASC
+            """)
+    List<Mensaje> findByConversacionIdOrderByFechaEnvioAsc(@Param("convId") Long convId);
 
     // Último mensaje del bot — para contexto de respuesta (HU14)
     @Query("""

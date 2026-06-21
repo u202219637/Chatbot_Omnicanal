@@ -15,6 +15,7 @@ import pe.edu.upc.shadowchat.serviceInterfaces.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -176,7 +177,21 @@ public class ConversacionController {
     @GetMapping("/{conversacionId}/mensajes")
     @PreAuthorize("hasAuthority('CLIENTE') or hasAuthority('ASESOR') or hasAuthority('ADMINISTRADOR')")
     public List<MensajeResponseDTO> mensajes(@PathVariable Long conversacionId) {
-        return mensajeService.listByConversacion(conversacionId).stream().map(m -> {
+        List<Mensaje> listaMensajes = mensajeService.listByConversacion(conversacionId);
+
+        // FIX rendimiento: antes se llamaba fuenteRespuestaService.listByMensaje(id)
+        // DENTRO del .map() de cada mensaje -> 1 query SQL extra por cada mensaje
+        // (N+1). Con conversaciones de 10-20+ mensajes, sumado a que este endpoint
+        // se llama cada 5s por el polling del chat (cliente y panel de asesor),
+        // esto saturaba el plan B1 y hacía que el polling se sintiera "congelado"
+        // (la respuesta tardaba más que el propio intervalo de 5s entre polls).
+        // Ahora se trae TODO en una sola query y se agrupa en memoria por mensaje.
+        List<Long> idsMensajes = listaMensajes.stream().map(Mensaje::getId).collect(Collectors.toList());
+        Map<Long, List<FuenteRespuesta>> fuentesPorMensaje = fuenteRespuestaService
+                .listByMensajes(idsMensajes).stream()
+                .collect(Collectors.groupingBy(fr -> fr.getMensaje().getId()));
+
+        return listaMensajes.stream().map(m -> {
             MensajeResponseDTO d = new MensajeResponseDTO();
             d.setId(m.getId());
             d.setConversacionId(conversacionId);
@@ -188,8 +203,9 @@ public class ConversacionController {
             d.setTokensSalida(m.getTokensSalida());
             d.setFechaEnvio(m.getFechaEnvio());
             if (m.getCanal() != null) d.setCanalNombre(m.getCanal().getNombre());
-            List<FuenteRespuestaDTO> fuentes = fuenteRespuestaService
-                    .listByMensaje(m.getId()).stream().map(fr -> {
+
+            List<FuenteRespuestaDTO> fuentes = fuentesPorMensaje
+                    .getOrDefault(m.getId(), List.of()).stream().map(fr -> {
                         FuenteRespuestaDTO fd = new FuenteRespuestaDTO();
                         fd.setId(fr.getId());
                         fd.setTipoFuente(fr.getTipoFuente());

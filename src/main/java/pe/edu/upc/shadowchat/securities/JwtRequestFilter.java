@@ -29,11 +29,20 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         // ── BYPASS JWT para rutas públicas ──────────────────────────────
+        // OJO: "/productos" solo debe saltarse el JWT en GET (catálogo público).
+        // POST/PUT/DELETE sobre /productos son acciones de ADMIN y SÍ necesitan
+        // que el filtro autentique al usuario, o @PreAuthorize rechaza con 401
+        // porque el SecurityContext llega vacío al controller.
         String path = request.getRequestURI();
+        String method = request.getMethod();
+        boolean esProductosPublico = path.startsWith("/productos") && method.equals("GET");
+        boolean esCompararPublico = path.equals("/productos/comparar") && method.equals("POST");
+
         if (path.equals("/login") ||
                 path.equals("/categorias") ||
                 path.equals("/marcas") ||
-                path.startsWith("/productos") ||
+                esProductosPublico ||
+                esCompararPublico ||
                 path.equals("/usuarios") ||
                 path.startsWith("/webhook") ||
                 path.startsWith("/swagger-ui") ||

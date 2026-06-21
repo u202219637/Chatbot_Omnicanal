@@ -22,4 +22,10 @@ public class FuenteRespuestaServiceImplement implements IFuenteRespuestaService 
     public List<FuenteRespuesta> listByMensaje(Long mensajeId) {
         return fuenteRespuestaRepository.findByMensajeIdOrderByScoreRelevanciaDesc(mensajeId);
     }
+
+    @Override
+    public List<FuenteRespuesta> listByMensajes(List<Long> mensajeIds) {
+        if (mensajeIds == null || mensajeIds.isEmpty()) return List.of();
+        return fuenteRespuestaRepository.findByMensajeIdIn(mensajeIds);
+    }
 }
