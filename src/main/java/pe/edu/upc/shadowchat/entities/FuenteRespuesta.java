@@ -18,13 +18,14 @@ public class FuenteRespuesta implements Serializable {
     @JsonIgnore
     private Mensaje mensaje;
 
-    // Nullable: puede ser fragmento O producto (no ambos obligatoriamente)
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_fragmento", nullable = true)
+    @JsonIgnore
     private FragmentoConocimiento fragmento;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_producto", nullable = true)
+    @JsonIgnore
     private Producto producto;
 
     // FRAGMENTO_RAG, PRODUCTO, FAQ, MANUAL
