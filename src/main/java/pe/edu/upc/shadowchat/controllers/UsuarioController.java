@@ -167,4 +167,26 @@ public class UsuarioController {
         }
         return ResponseEntity.ok().build();
     }
+    // GET /usuarios/stats (conteo para panel ADMIN/ASESOR)
+    @GetMapping("/stats")
+    @PreAuthorize("hasAuthority('ADMINISTRADOR') or hasAuthority('ASESOR')")
+    public ResponseEntity<UsuarioStatsDTO> stats() {
+        List<Usuario> todos = usuarioService.list();
+        long total = todos.size();
+        long activos = todos.stream().filter(u -> Boolean.TRUE.equals(u.getEstado())).count();
+
+        UsuarioStatsDTO dto = new UsuarioStatsDTO();
+        dto.setTotal(total);
+        dto.setActivos(activos);
+        dto.setInactivos(total - activos);
+
+        // conteo por rol usando el query nativo que ya tienes
+        java.util.Map<String, Long> porRol = new java.util.HashMap<>();
+        for (Object[] fila : usuarioService.countByRol()) {
+            porRol.put((String) fila[0], ((Number) fila[1]).longValue());
+        }
+        dto.setPorRol(porRol);
+        return ResponseEntity.ok(dto);
+    }
+
 }

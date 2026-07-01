@@ -19,12 +19,9 @@ public interface FuenteRespuestaRepository extends JpaRepository<FuenteRespuesta
     // mensaje (esto es lo que generaba el N+1 dentro de GET /chat/{id}/mensajes,
     // multiplicado además por el polling cada 5s del chat).
     @Query("""
-            SELECT fr FROM FuenteRespuesta fr
-            LEFT JOIN FETCH fr.fragmento f
-            LEFT JOIN FETCH f.documentoConocimiento
-            LEFT JOIN FETCH fr.producto
-            WHERE fr.mensaje.id IN :mensajeIds
-            ORDER BY fr.scoreRelevancia DESC
-            """)
+        SELECT fr FROM FuenteRespuesta fr
+        WHERE fr.mensaje.id IN :mensajeIds
+        ORDER BY fr.scoreRelevancia DESC
+        """)
     List<FuenteRespuesta> findByMensajeIdIn(@Param("mensajeIds") List<Long> mensajeIds);
 }

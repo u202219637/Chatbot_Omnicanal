@@ -39,13 +39,19 @@ public class ConversacionController {
             "quiero un asesor", "hablar con un humano", "hablar con una persona",
             "quiero hablar con alguien", "necesito ayuda humana", "agente humano",
             "quiero un agente", "escalar", "soporte humano", "no me ayuda",
-            "hablar con soporte", "asesor humano", "persona real"
+            "hablar con soporte", "asesor humano", "persona real",
+            "quiero comprar", "me lo llevo", "como pago", "cómo pago",
+            "pasame el yape", "pásame el yape", "quiero pagar",
+            "ya pague", "ya pagué", "envio el comprobante", "envío el comprobante",
+            "te envio el comprobante", "quiero delivery", "confirmar mi pedido",
+            "quiero confirmar", "pasame el numero", "pásame el número",
+            "quiero hacer el pago", "voy a pagar", "quiero transferir"
     );
 
     private boolean detectaEscalacion(String texto) {
         try {
             return ragService.preguntaDirecta(
-                    "Eres un clasificador. Responde SOLO 'SI' si el cliente pide explícitamente hablar con un asesor, agente o persona humana. En CUALQUIER otro caso responde 'NO'.",
+                    "Eres un clasificador. Responde SOLO 'SI' si el cliente: (1) pide hablar con un asesor, agente o persona humana, O (2) expresa intención de compra: quiere pagar, pide el Yape o Plin, dice que ya pagó, quiere enviar comprobante, pide delivery para cerrar compra, quiere confirmar pedido, dice 'me lo llevo' o 'quiero comprar'. En CUALQUIER otro caso responde 'NO'.",
                     texto
             ).trim().toUpperCase().startsWith("SI");
         } catch (Exception e) {
@@ -210,12 +216,8 @@ public class ConversacionController {
                         fd.setId(fr.getId());
                         fd.setTipoFuente(fr.getTipoFuente());
                         fd.setScoreRelevancia(fr.getScoreRelevancia());
-                        if (fr.getFragmento() != null && fr.getFragmento().getDocumentoConocimiento() != null)
-                            fd.setTituloDocumento(fr.getFragmento().getDocumentoConocimiento().getTitulo());
-                        if (fr.getFragmento() != null) {
-                            String c = fr.getFragmento().getContenido();
-                            fd.setExtractoContenido(c != null ? c.substring(0, Math.min(200, c.length())) : null);
-                        }
+                        // Evitar lazy-load de fragmento (embedding pgvector causa error en Hibernate)
+                        // El score ya está guardado directamente en fuente_respuesta
                         return fd;
                     }).collect(Collectors.toList());
             d.setFuentes(fuentes);
