@@ -54,6 +54,9 @@ public class Mensaje implements Serializable {
     @Column(name = "fecha_envio")
     private LocalDateTime fechaEnvio = LocalDateTime.now();
 
+    @Column(name = "media_url", length = 500)
+    private String mediaUrl;
+
     // Trazabilidad RAG: que fragmentos uso el bot para responder
     @OneToMany(mappedBy = "mensaje", cascade = CascadeType.ALL,
             orphanRemoval = true, fetch = FetchType.LAZY)
@@ -103,6 +106,9 @@ public class Mensaje implements Serializable {
 
     public LocalDateTime getFechaEnvio() { return fechaEnvio; }
     public void setFechaEnvio(LocalDateTime fechaEnvio) { this.fechaEnvio = fechaEnvio; }
+
+    public String getMediaUrl() { return mediaUrl; }
+    public void setMediaUrl(String v) { this.mediaUrl = v; }
 
     public List<FuenteRespuesta> getFuentesRespuesta() { return fuentesRespuesta; }
     public void setFuentesRespuesta(List<FuenteRespuesta> fuentesRespuesta) { this.fuentesRespuesta = fuentesRespuesta; }

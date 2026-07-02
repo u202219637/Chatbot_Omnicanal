@@ -39,7 +39,10 @@ public class MensajeResponseDTO {
     public void setEscalada(Boolean v)                 { this.escalada = v; }
 
     private String canalNombre; // WEB o WHATSAPP — para vista omnicanal
+    private String mediaUrl;
 
     public String getCanalNombre()         { return canalNombre; }
     public void setCanalNombre(String v)   { this.canalNombre = v; }
+    public String getMediaUrl()            { return mediaUrl; }
+    public void setMediaUrl(String v)      { this.mediaUrl = v; }
 }

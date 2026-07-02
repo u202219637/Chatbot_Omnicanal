@@ -7,4 +7,5 @@ public interface ITwilioService {
      * @param mensaje Texto a enviar
      */
     void enviarWhatsApp(String numero, String mensaje);
+    void enviarWhatsAppConImagen(String numero, String mensaje, String mediaUrl);
 }

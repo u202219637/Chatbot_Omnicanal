@@ -209,6 +209,7 @@ public class ConversacionController {
             d.setTokensSalida(m.getTokensSalida());
             d.setFechaEnvio(m.getFechaEnvio());
             if (m.getCanal() != null) d.setCanalNombre(m.getCanal().getNombre());
+            d.setMediaUrl(m.getMediaUrl());
 
             List<FuenteRespuestaDTO> fuentes = fuentesPorMensaje
                     .getOrDefault(m.getId(), List.of()).stream().map(fr -> {
@@ -298,6 +299,9 @@ public class ConversacionController {
         msg.setTipoEmisor("ASESOR");
         msg.setContenido(request.getContenido());
         msg.setCanal(canal);
+        if (request.getMediaUrl() != null) {
+            msg.setMediaUrl(request.getMediaUrl());
+        }
         mensajeService.insert(msg);
 
         conv.setCantidadMensajes(
@@ -311,11 +315,19 @@ public class ConversacionController {
                     usuarioCanalService.listByUsuario(conv.getUsuario().getId())
                             .stream()
                             .filter(uc -> "WHATSAPP".equals(uc.getCanal().getNombre()))
-                            .findFirst().orElse(null);
-            if (ucWA != null) {
-                twilioService.enviarWhatsApp(
-                        ucWA.getIdentificadorExterno(),
-                        "[Asesor " + nombreAsesor + "]: " + request.getContenido()                );
+                            .findFirst().orElse(null);if (ucWA != null) {
+                if (request.getMediaUrl() != null) {
+                    twilioService.enviarWhatsAppConImagen(
+                            ucWA.getIdentificadorExterno(),
+                            "[Asesor " + nombreAsesor + "]: " + request.getContenido(),
+                            request.getMediaUrl()
+                    );
+                } else {
+                    twilioService.enviarWhatsApp(
+                            ucWA.getIdentificadorExterno(),
+                            "[Asesor " + nombreAsesor + "]: " + request.getContenido()
+                    );
+                }
             }
         } catch (Exception ignored) {}
 

@@ -7,6 +7,8 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import pe.edu.upc.shadowchat.serviceInterfaces.ITwilioService;
+import java.net.URI;
+import java.util.List;
 
 @Service
 public class TwilioServiceImplement implements ITwilioService {
@@ -51,6 +53,25 @@ public class TwilioServiceImplement implements ITwilioService {
             System.out.println("[TwilioService] Enviado SID: " + message.getSid());
         } catch (Exception e) {
             System.err.println("[TwilioService] Error enviando a " + numero + ": " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void enviarWhatsAppConImagen(String numero, String mensaje, String mediaUrl) {
+        if (!habilitado) {
+            System.out.println("[TwilioService] SIMULADO IMG → " + numero + ": " + mediaUrl);
+            return;
+        }
+        try {
+            Message.creator(
+                            new PhoneNumber("whatsapp:" + numero),
+                            new PhoneNumber(fromNumber),
+                            mensaje
+                    ).setMediaUrl(List.of(URI.create(mediaUrl)))
+                    .create();
+            System.out.println("[TwilioService] Imagen enviada a: " + numero);
+        } catch (Exception e) {
+            System.err.println("[TwilioService] Error enviando imagen a " + numero + ": " + e.getMessage());
         }
     }
 }
